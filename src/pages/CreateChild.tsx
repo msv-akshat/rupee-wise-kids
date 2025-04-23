@@ -58,7 +58,11 @@ export default function CreateChild() {
     
     try {
       console.log("Starting child account creation process");
+      console.log("Current user:", currentUser.uid);
+      console.log("Creating account with data:", data.name, data.email);
+      
       await createChildAccount(data.email, data.password, data.name);
+      
       console.log("Child account created successfully, navigating to manage children");
       toast.success(`Child account for ${data.name} created successfully!`);
       navigate("/manage-children");

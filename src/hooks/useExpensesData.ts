@@ -17,6 +17,7 @@ export const useExpensesData = () => {
       setIsLoading(true);
       
       try {
+        console.log("Fetching expenses for user:", currentUser.uid, "with role:", userRole);
         let expensesData: Expense[] = [];
         
         if (userRole === 'parent') {
@@ -24,7 +25,10 @@ export const useExpensesData = () => {
           const childrenSnapshot = await getDocs(collection(db, 'users', currentUser.uid, 'children'));
           const childrenIds = childrenSnapshot.docs.map(doc => doc.id);
           
+          console.log("Parent's children IDs:", childrenIds);
+          
           if (childrenIds.length === 0) {
+            console.log("No children found, returning empty expenses array");
             setExpenses([]);
             setIsLoading(false);
             return;
@@ -32,12 +36,16 @@ export const useExpensesData = () => {
           
           // For each child, fetch their expenses
           for (const childId of childrenIds) {
+            console.log("Fetching expenses for child:", childId);
+            
             const childExpensesQuery = query(
               collection(db, 'expenses'),
               where('childId', '==', childId)
             );
             
             const expensesSnapshot = await getDocs(childExpensesQuery);
+            console.log("Child expenses snapshot size:", expensesSnapshot.size);
+            
             const childExpenses = expensesSnapshot.docs.map(doc => {
               const data = doc.data();
               return {
@@ -56,12 +64,16 @@ export const useExpensesData = () => {
           }
         } else {
           // For child users, fetch their own expenses
+          console.log("Fetching expenses for child user:", currentUser.uid);
+          
           const expensesQuery = query(
             collection(db, 'expenses'),
             where('userId', '==', currentUser.uid)
           );
           
           const expensesSnapshot = await getDocs(expensesQuery);
+          console.log("Child expenses snapshot size:", expensesSnapshot.size);
+          
           expensesData = expensesSnapshot.docs.map(doc => {
             const data = doc.data();
             return {
@@ -79,9 +91,9 @@ export const useExpensesData = () => {
         
         // Sort expenses by date (newest first)
         expensesData.sort((a, b) => {
-          const dateA = a.date as Timestamp;
-          const dateB = b.date as Timestamp;
-          return dateB.toMillis() - dateA.toMillis();
+          const dateA = a.date instanceof Timestamp ? a.date.toMillis() : new Date(a.date).getTime();
+          const dateB = b.date instanceof Timestamp ? b.date.toMillis() : new Date(b.date).getTime();
+          return dateB - dateA;
         });
         
         console.log("Fetched expenses:", expensesData.length);

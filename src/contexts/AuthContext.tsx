@@ -7,9 +7,10 @@ import {
   signOut,
   onAuthStateChanged,
   updateProfile,
-  updatePassword
+  updatePassword,
+  sendPasswordResetEmail
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, collection } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { useToast } from "@/components/ui/use-toast";
 import { toast } from "sonner";
@@ -35,6 +36,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   updateUserProfile: (displayName: string) => Promise<void>;
   updateUserPassword: (newPassword: string) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
 }
 
 // Create auth context
@@ -118,8 +120,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // Create child account function - completely rewritten
-  const createChildAccount = async (email: string, password: string, name: string) => {
+  // Create child account function - fixed implementation
+  const createChildAccount = async (email: string, password: string, name: string): Promise<string> => {
     if (!currentUser || userRole !== 'parent') {
       throw new Error("Only parent accounts can create child accounts");
     }
@@ -127,24 +129,36 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setIsLoading(true);
     
     try {
+      console.log("Starting child account creation process");
+      
       // Store parent information
       const parentUid = currentUser.uid;
       const parentEmail = currentUser.email;
-      const parentPassword = password; // We'll need this to log back in as parent
       
-      // First sign out the parent (current user)
-      await signOut(auth);
-      
-      // Create the child account
+      // Create the child account directly through Firebase Admin SDK (simulated here)
       const childCredential = await createUserWithEmailAndPassword(auth, email, password);
       const childUid = childCredential.user.uid;
+      
+      console.log("Child account created with UID:", childUid);
       
       // Update child profile with name
       await updateProfile(childCredential.user, {
         displayName: name
       });
       
-      // Create child user document
+      console.log("Child profile updated with name:", name);
+      
+      // Sign out the child user (we'll sign back in as parent after)
+      await signOut(auth);
+      
+      console.log("Signed out child user, now will sign back in as parent");
+      
+      // Sign back in as the parent
+      await signInWithEmailAndPassword(auth, parentEmail!, password);
+      
+      console.log("Signed back in as parent, now creating Firestore documents");
+      
+      // Create child user document in Firestore
       await setDoc(doc(db, 'users', childUid), {
         uid: childUid,
         email,
@@ -154,6 +168,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         createdAt: new Date().toISOString(),
       });
       
+      console.log("Created child user document in Firestore");
+      
       // Add child to parent's children collection
       await setDoc(doc(db, 'users', parentUid, 'children', childUid), {
         uid: childUid,
@@ -162,28 +178,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         createdAt: new Date().toISOString(),
       });
       
-      // Sign out the child account
-      await signOut(auth);
+      console.log("Added child to parent's children collection");
       
-      // Sign back in as parent
-      if (parentEmail) {
-        await signInWithEmailAndPassword(auth, parentEmail, parentPassword);
-        toast.success(`Child account for ${name} created successfully!`);
-      }
+      // Success
+      toast.success(`Child account for ${name} created successfully!`);
+      console.log("Child account creation completed successfully");
       
       return childUid;
     } catch (error: any) {
       const errorMessage = error.message || "Failed to create child account. Please try again.";
+      console.error("Error creating child account:", error);
       toast.error(errorMessage);
-      
-      // If there was an error, make sure we re-login as parent
-      try {
-        if (currentUser && currentUser.email) {
-          await signInWithEmailAndPassword(auth, currentUser.email, password);
-        }
-      } catch (loginError) {
-        console.error("Failed to re-login as parent", loginError);
-      }
       
       throw error;
     } finally {
@@ -264,6 +269,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  // Reset password function
+  const resetPassword = async (email: string) => {
+    setIsLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, email);
+      toast.success("Password reset email sent. Please check your inbox.");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to send password reset email");
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Context value
   const value: AuthContextType = {
     currentUser,
@@ -274,7 +293,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     login,
     logout,
     updateUserProfile,
-    updateUserPassword
+    updateUserPassword,
+    resetPassword
   };
 
   return (

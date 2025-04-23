@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, query } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
   Card,
@@ -34,19 +34,30 @@ export default function ManageChildren() {
       if (!currentUser) return;
       
       try {
-        console.log("Fetching children for user:", currentUser.uid);
+        console.log("Fetching children for parent:", currentUser.uid);
+        
+        // Use query to get children collection
         const childrenRef = collection(db, 'users', currentUser.uid, 'children');
         const childrenSnapshot = await getDocs(childrenRef);
         
-        console.log("Children snapshot size:", childrenSnapshot.size);
+        console.log("Children collection snapshot size:", childrenSnapshot.size);
+        console.log("Children documents:", childrenSnapshot.docs.map(doc => doc.id));
         
-        const childrenData = childrenSnapshot.docs.map(doc => ({
-          uid: doc.id,
-          ...doc.data()
-        })) as Child[];
-        
-        console.log("Fetched children data:", childrenData);
-        setChildren(childrenData);
+        if (childrenSnapshot.empty) {
+          console.log("No children found for this parent");
+          setChildren([]);
+        } else {
+          const childrenData = childrenSnapshot.docs.map(doc => {
+            console.log("Child document data:", doc.id, doc.data());
+            return {
+              uid: doc.id,
+              ...doc.data()
+            } as Child;
+          });
+          
+          console.log("Processed children data:", childrenData);
+          setChildren(childrenData);
+        }
       } catch (error) {
         console.error("Error fetching children:", error);
         toast.error("Failed to load children data");
@@ -63,12 +74,17 @@ export default function ManageChildren() {
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
-    }).format(date);
+    try {
+      const date = new Date(dateString);
+      return new Intl.DateTimeFormat('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+      }).format(date);
+    } catch (e) {
+      console.error("Error formatting date:", e);
+      return dateString;
+    }
   };
 
   if (isLoading) {
