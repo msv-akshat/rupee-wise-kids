@@ -9,9 +9,10 @@ import {
   updateProfile,
   updatePassword
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { useToast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 
 // Define user roles
 export type UserRole = 'parent' | 'child';
@@ -44,7 +45,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<RupeeWiseUser | null>(null);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const { toast } = useToast();
+  const { toast: uiToast } = useToast();
 
   // Effect for auth state changes
   useEffect(() => {
@@ -100,13 +101,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         createdAt: new Date().toISOString(),
       });
       
-      toast({
+      uiToast({
         title: "Account created successfully!",
         description: "Welcome to RupeeWise Kids.",
       });
     } catch (error: any) {
       const errorMessage = error.message || "Registration failed. Please try again.";
-      toast({
+      uiToast({
         variant: "destructive",
         title: "Registration failed",
         description: errorMessage,
@@ -117,15 +118,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // Create child account function
+  // Create child account function - fixed to prevent auto-login as child
   const createChildAccount = async (email: string, password: string, name: string) => {
     if (!currentUser || userRole !== 'parent') {
       throw new Error("Only parent accounts can create child accounts");
     }
 
     setIsLoading(true);
+    
+    // Store current parent auth information
+    const parentEmail = currentUser.email;
+    const parentUid = currentUser.uid;
+    
     try {
-      // Create account temporarily
+      // Save parent auth state
+      const parentAuth = { ...currentUser };
+      
+      // Create child account temporarily
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const childUid = userCredential.user.uid;
       
@@ -140,35 +149,39 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         email,
         displayName: name,
         role: 'child',
-        parentId: currentUser.uid,
+        parentId: parentUid,
         createdAt: new Date().toISOString(),
       });
       
       // Add child to parent's children collection
-      await setDoc(doc(db, 'users', currentUser.uid, 'children', childUid), {
+      await setDoc(doc(db, 'users', parentUid, 'children', childUid), {
         uid: childUid,
         email,
         displayName: name,
         createdAt: new Date().toISOString(),
       });
       
-      // Sign out the child account and sign back in as parent
-      await signOut(auth);
-      await signInWithEmailAndPassword(auth, currentUser.email!, password);
+      console.log("Child account created, signing out...");
       
-      toast({
-        title: "Child account created!",
-        description: `${name}'s account has been set up successfully.`,
-      });
+      // Sign out the child account
+      await signOut(auth);
+      
+      console.log("Signed out child account, signing back in as parent...");
+      
+      // Sign back in as parent
+      if (parentEmail) {
+        // We need to log the parent back in
+        await signInWithEmailAndPassword(auth, parentEmail, password);
+        
+        toast.success(`Child account for ${name} created successfully!`);
+      } else {
+        toast.error("Failed to restore parent session");
+      }
       
       return childUid;
     } catch (error: any) {
       const errorMessage = error.message || "Failed to create child account. Please try again.";
-      toast({
-        variant: "destructive",
-        title: "Account creation failed",
-        description: errorMessage,
-      });
+      toast.error(errorMessage);
       throw error;
     } finally {
       setIsLoading(false);
@@ -180,17 +193,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setIsLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      toast({
-        title: "Logged in successfully!",
-        description: "Welcome back to RupeeWise Kids.",
-      });
+      toast.success("Logged in successfully!");
     } catch (error: any) {
       const errorMessage = error.message || "Login failed. Please check your credentials.";
-      toast({
-        variant: "destructive",
-        title: "Login failed",
-        description: errorMessage,
-      });
+      toast.error(errorMessage);
       throw error;
     } finally {
       setIsLoading(false);
@@ -202,15 +208,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setIsLoading(true);
     try {
       await signOut(auth);
-      toast({
-        title: "Logged out successfully",
-      });
+      toast.success("Logged out successfully");
     } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Logout failed",
-        description: error.message,
-      });
+      toast.error(error.message || "Logout failed");
       throw error;
     } finally {
       setIsLoading(false);
@@ -230,10 +230,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         displayName
       }, { merge: true });
       
-      toast({
-        title: "Profile updated",
-        description: "Your profile has been updated successfully.",
-      });
+      toast.success("Profile updated successfully");
       
       // Update local user state
       setCurrentUser({
@@ -241,11 +238,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         displayName
       });
     } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Update failed",
-        description: error.message,
-      });
+      toast.error(error.message || "Profile update failed");
       throw error;
     } finally {
       setIsLoading(false);
@@ -259,16 +252,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setIsLoading(true);
     try {
       await updatePassword(currentUser, newPassword);
-      toast({
-        title: "Password updated",
-        description: "Your password has been updated successfully.",
-      });
+      toast.success("Password updated successfully");
     } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Password update failed",
-        description: error.message,
-      });
+      toast.error(error.message || "Password update failed");
       throw error;
     } finally {
       setIsLoading(false);

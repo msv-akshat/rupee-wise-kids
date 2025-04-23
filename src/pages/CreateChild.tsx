@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { UserPlus } from "lucide-react";
+import { toast } from "sonner";
 
 const childSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters" }),
@@ -34,7 +35,7 @@ const childSchema = z.object({
 type ChildFormValues = z.infer<typeof childSchema>;
 
 export default function CreateChild() {
-  const { createChildAccount } = useAuth();
+  const { createChildAccount, currentUser } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -48,12 +49,23 @@ export default function CreateChild() {
   });
 
   const onSubmit = async (data: ChildFormValues) => {
+    if (!currentUser) {
+      toast.error("You must be logged in to create a child account");
+      return;
+    }
+    
     setIsLoading(true);
+    
     try {
+      const parentEmail = currentUser.email;
+      console.log("Creating child account with parent email:", parentEmail);
+      
       await createChildAccount(data.email, data.password, data.name);
+      toast.success(`Child account for ${data.name} created successfully!`);
       navigate("/manage-children");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating child account:", error);
+      toast.error(error.message || "Failed to create child account. Please try again.");
     } finally {
       setIsLoading(false);
     }
