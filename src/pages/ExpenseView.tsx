@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { collection, query, where, orderBy, getDocs, Timestamp } from "firebase/firestore";
+import { collection, query, where, addDoc, getDocs, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -24,28 +24,18 @@ const ExpenseView = () => {
 
       try {
         setIsLoading(true);
+        console.log("Fetching expenses for user:", currentUser.uid);
         
-        // Create base query
-        let baseQuery = collection(db, "expenses");
+        // Create base query without orderBy to avoid composite index issues
+        const expensesQuery = query(
+          collection(db, "expenses"),
+          where("userId", "==", currentUser.uid)
+        );
         
-        // Apply filters based on timeframe
-        let queryConstraints = [where("userId", "==", currentUser.uid)];
-        
-        const now = new Date();
-        
-        if (timeframe === "week") {
-          const lastWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-          queryConstraints.push(where("date", ">=", Timestamp.fromDate(lastWeek)));
-        } else if (timeframe === "month") {
-          const lastMonth = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-          queryConstraints.push(where("date", ">=", Timestamp.fromDate(lastMonth)));
-        }
-        
-        // Execute query without orderBy to avoid composite index issues
-        const expensesQuery = query(baseQuery, ...queryConstraints);
         const expensesSnapshot = await getDocs(expensesQuery);
+        console.log("Expenses snapshot size:", expensesSnapshot.size);
         
-        const expensesData = expensesSnapshot.docs.map((doc) => {
+        let expensesData = expensesSnapshot.docs.map((doc) => {
           const data = doc.data();
           return {
             id: doc.id,
@@ -59,14 +49,30 @@ const ExpenseView = () => {
           } as Expense;
         });
 
+        // Apply timeframe filter client-side
+        if (timeframe !== "all") {
+          const now = new Date();
+          const cutoffDate = timeframe === "week"
+            ? new Date(now.setDate(now.getDate() - 7))
+            : new Date(now.setDate(now.getDate() - 30));
+          
+          expensesData = expensesData.filter((expense) => {
+            const expenseDate = expense.date instanceof Timestamp
+              ? expense.date.toDate()
+              : new Date(expense.date);
+            return expenseDate >= cutoffDate;
+          });
+        }
+
         // Sort data client-side instead of using orderBy in the query
-        const sortedExpenses = expensesData.sort((a, b) => {
-          const dateA = a.date as Timestamp;
-          const dateB = b.date as Timestamp;
+        expensesData.sort((a, b) => {
+          const dateA = a.date instanceof Timestamp ? a.date : Timestamp.fromDate(new Date(a.date));
+          const dateB = b.date instanceof Timestamp ? b.date : Timestamp.fromDate(new Date(b.date));
           return dateB.toMillis() - dateA.toMillis();
         });
 
-        setExpenses(sortedExpenses);
+        console.log("Processed expenses data:", expensesData);
+        setExpenses(expensesData);
       } catch (error) {
         console.error("Error fetching expenses:", error);
         toast.error("Failed to load expenses");

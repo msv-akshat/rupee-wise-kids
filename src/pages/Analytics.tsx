@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { subDays, subMonths, isAfter } from "date-fns";
 import { Timestamp } from "firebase/firestore";
 import { BarChart3 } from "lucide-react";
@@ -99,6 +99,11 @@ export default function Analytics() {
     return Object.entries(dateGrouped)
       .map(([date, amount]) => ({ date, amount }));
   };
+
+  // Use effect to log when expenses are loaded or changed
+  useEffect(() => {
+    console.log("Analytics: Expenses data updated, count:", expenses.length);
+  }, [expenses]);
 
   if (isLoading) {
     return (

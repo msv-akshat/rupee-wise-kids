@@ -15,7 +15,6 @@ import {
   query, 
   getDocs, 
   where, 
-  orderBy, 
   limit, 
   doc, 
   getDoc, 
@@ -41,12 +40,15 @@ export default function Dashboard() {
       if (!currentUser) return;
       
       try {
+        console.log("Fetching dashboard data for user:", currentUser.uid, "with role:", userRole);
+        
         // Different data fetching based on user role
         if (userRole === 'parent') {
           // Fetch children for parent
-          const childrenSnapshot = await getDocs(
-            collection(db, 'users', currentUser.uid, 'children')
-          );
+          const childrenRef = collection(db, 'users', currentUser.uid, 'children');
+          const childrenSnapshot = await getDocs(childrenRef);
+          
+          console.log("Parent's children count:", childrenSnapshot.size);
           
           const childrenData = childrenSnapshot.docs.map(doc => ({
             uid: doc.id,
@@ -58,21 +60,29 @@ export default function Dashboard() {
           // If there are children, fetch the first child's expenses and budget
           if (childrenData.length > 0) {
             const firstChildId = childrenData[0].uid;
+            console.log("Fetching expenses for first child:", firstChildId);
             
-            // Fetch recent expenses
-            const expensesSnapshot = await getDocs(
-              query(
-                collection(db, 'expenses'),
-                where('childId', '==', firstChildId),
-                orderBy('date', 'desc'),
-                limit(5)
-              )
+            // Fetch recent expenses without orderBy
+            const expensesQuery = query(
+              collection(db, 'expenses'),
+              where('childId', '==', firstChildId),
+              limit(5)
             );
             
-            const expensesData = expensesSnapshot.docs.map(doc => ({
+            const expensesSnapshot = await getDocs(expensesQuery);
+            console.log("First child's expenses count:", expensesSnapshot.size);
+            
+            let expensesData = expensesSnapshot.docs.map(doc => ({
               id: doc.id,
               ...doc.data(),
             })) as Expense[];
+            
+            // Sort manually
+            expensesData.sort((a, b) => {
+              const dateA = a.date as Timestamp;
+              const dateB = b.date as Timestamp;
+              return dateB.toMillis() - dateA.toMillis();
+            });
             
             setRecentExpenses(expensesData);
             
@@ -82,15 +92,15 @@ export default function Dashboard() {
             
             // Fetch active budget
             const now = Timestamp.now();
-            const budgetSnapshot = await getDocs(
-              query(
-                collection(db, 'budgets'),
-                where('childId', '==', firstChildId),
-                where('startDate', '<=', now),
-                where('endDate', '>=', now),
-                limit(1)
-              )
+            const budgetQuery = query(
+              collection(db, 'budgets'),
+              where('childId', '==', firstChildId),
+              where('startDate', '<=', now),
+              where('endDate', '>=', now),
+              limit(1)
             );
+            
+            const budgetSnapshot = await getDocs(budgetQuery);
             
             if (!budgetSnapshot.empty) {
               const budgetData = {
@@ -99,23 +109,39 @@ export default function Dashboard() {
               } as Budget;
               
               setBudgetInfo(budgetData);
+            } else {
+              setBudgetInfo(null);
             }
+          } else {
+            // No children, reset states
+            setRecentExpenses([]);
+            setTotalSpent(0);
+            setBudgetInfo(null);
           }
         } else if (userRole === 'child') {
-          // Fetch child's expenses
-          const expensesSnapshot = await getDocs(
-            query(
-              collection(db, 'expenses'),
-              where('userId', '==', currentUser.uid),
-              orderBy('date', 'desc'),
-              limit(5)
-            )
+          console.log("Fetching child's expenses");
+          
+          // Fetch child's expenses without orderBy
+          const expensesQuery = query(
+            collection(db, 'expenses'),
+            where('userId', '==', currentUser.uid),
+            limit(5)
           );
           
-          const expensesData = expensesSnapshot.docs.map(doc => ({
+          const expensesSnapshot = await getDocs(expensesQuery);
+          console.log("Child's expenses count:", expensesSnapshot.size);
+          
+          let expensesData = expensesSnapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data(),
           })) as Expense[];
+          
+          // Sort manually
+          expensesData.sort((a, b) => {
+            const dateA = a.date as Timestamp;
+            const dateB = b.date as Timestamp;
+            return dateB.toMillis() - dateA.toMillis();
+          });
           
           setRecentExpenses(expensesData);
           
@@ -125,15 +151,15 @@ export default function Dashboard() {
           
           // Fetch active budget
           const now = Timestamp.now();
-          const budgetSnapshot = await getDocs(
-            query(
-              collection(db, 'budgets'),
-              where('childId', '==', currentUser.uid),
-              where('startDate', '<=', now),
-              where('endDate', '>=', now),
-              limit(1)
-            )
+          const budgetQuery = query(
+            collection(db, 'budgets'),
+            where('childId', '==', currentUser.uid),
+            where('startDate', '<=', now),
+            where('endDate', '>=', now),
+            limit(1)
           );
+          
+          const budgetSnapshot = await getDocs(budgetQuery);
           
           if (!budgetSnapshot.empty) {
             const budgetData = {
@@ -142,13 +168,20 @@ export default function Dashboard() {
             } as Budget;
             
             setBudgetInfo(budgetData);
+          } else {
+            setBudgetInfo(null);
           }
           
-          // Get parent info
+          // Get parent info if available
           if (currentUser.parentId) {
-            const parentDoc = await getDoc(doc(db, 'users', currentUser.parentId));
-            if (parentDoc.exists()) {
-              // You can store parent data if needed
+            try {
+              const parentDoc = await getDoc(doc(db, 'users', currentUser.parentId));
+              if (parentDoc.exists()) {
+                // You can store parent data if needed
+                console.log("Parent data retrieved");
+              }
+            } catch (error) {
+              console.error("Error fetching parent data:", error);
             }
           }
         }

@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { collection, query, where, getDocs, orderBy, Timestamp } from "firebase/firestore";
+import { collection, query, where, getDocs, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Expense, ExpenseCategory } from "@/types/models";
 import { useAuth } from "@/contexts/AuthContext";
@@ -20,6 +20,7 @@ export const useExpensesData = () => {
         let expensesData: Expense[] = [];
         
         if (userRole === 'parent') {
+          // Fetch children first
           const childrenSnapshot = await getDocs(collection(db, 'users', currentUser.uid, 'children'));
           const childrenIds = childrenSnapshot.docs.map(doc => doc.id);
           
@@ -29,17 +30,15 @@ export const useExpensesData = () => {
             return;
           }
           
-          const expensesPromises = childrenIds.map(childId => 
-            getDocs(query(
+          // For each child, fetch their expenses
+          for (const childId of childrenIds) {
+            const childExpensesQuery = query(
               collection(db, 'expenses'),
-              where('childId', '==', childId),
-              orderBy('date', 'desc')
-            ))
-          );
-          
-          const expensesSnapshots = await Promise.all(expensesPromises);
-          expensesData = expensesSnapshots.flatMap(snapshot => 
-            snapshot.docs.map(doc => {
+              where('childId', '==', childId)
+            );
+            
+            const expensesSnapshot = await getDocs(childExpensesQuery);
+            const childExpenses = expensesSnapshot.docs.map(doc => {
               const data = doc.data();
               return {
                 id: doc.id,
@@ -51,13 +50,15 @@ export const useExpensesData = () => {
                 childId: data.childId as string,
                 createdAt: data.createdAt as Timestamp,
               };
-            })
-          );
+            });
+            
+            expensesData = [...expensesData, ...childExpenses];
+          }
         } else {
+          // For child users, fetch their own expenses
           const expensesQuery = query(
             collection(db, 'expenses'),
-            where('userId', '==', currentUser.uid),
-            orderBy('date', 'desc')
+            where('userId', '==', currentUser.uid)
           );
           
           const expensesSnapshot = await getDocs(expensesQuery);
@@ -76,6 +77,14 @@ export const useExpensesData = () => {
           });
         }
         
+        // Sort expenses by date (newest first)
+        expensesData.sort((a, b) => {
+          const dateA = a.date as Timestamp;
+          const dateB = b.date as Timestamp;
+          return dateB.toMillis() - dateA.toMillis();
+        });
+        
+        console.log("Fetched expenses:", expensesData.length);
         setExpenses(expensesData);
       } catch (error) {
         console.error("Error fetching expenses:", error);
