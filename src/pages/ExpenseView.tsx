@@ -101,10 +101,19 @@ const ExpenseView = () => {
         const expensesSnapshot = await getDocs(expensesQuery);
         console.log("Expenses snapshot size:", expensesSnapshot.size);
         
-        const expensesData = expensesSnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as Expense[];
+        const expensesData = expensesSnapshot.docs.map((doc) => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            amount: data.amount,
+            category: data.category,
+            description: data.description,
+            date: data.date,
+            userId: data.userId,
+            childId: data.childId,
+            createdAt: data.createdAt,
+          } as Expense;
+        });
 
         console.log("Expenses data:", expensesData);
         setExpenses(expensesData);

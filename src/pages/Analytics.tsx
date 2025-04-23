@@ -119,10 +119,19 @@ export default function Analytics() {
           
           const expensesSnapshots = await Promise.all(expensesPromises);
           const allExpenses = expensesSnapshots.flatMap(snapshot => 
-            snapshot.docs.map(doc => ({
-              id: doc.id,
-              ...doc.data()
-            } as Expense))
+            snapshot.docs.map(doc => {
+              const data = doc.data();
+              return {
+                id: doc.id,
+                amount: data.amount,
+                category: data.category,
+                description: data.description,
+                date: data.date,
+                userId: data.userId,
+                childId: data.childId,
+                createdAt: data.createdAt,
+              } as Expense;
+            })
           );
           
           setExpenses(allExpenses);
@@ -135,10 +144,19 @@ export default function Analytics() {
           );
           
           const expensesSnapshot = await getDocs(expensesQuery);
-          const expensesData = expensesSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          })) as Expense[];
+          const expensesData = expensesSnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              amount: data.amount,
+              category: data.category, 
+              description: data.description,
+              date: data.date,
+              userId: data.userId,
+              childId: data.childId,
+              createdAt: data.createdAt,
+            } as Expense;
+          });
           
           setExpenses(expensesData);
         }
