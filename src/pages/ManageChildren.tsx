@@ -34,14 +34,18 @@ export default function ManageChildren() {
       if (!currentUser) return;
       
       try {
+        console.log("Fetching children for user:", currentUser.uid);
         const childrenRef = collection(db, 'users', currentUser.uid, 'children');
         const childrenSnapshot = await getDocs(childrenRef);
+        
+        console.log("Children snapshot size:", childrenSnapshot.size);
         
         const childrenData = childrenSnapshot.docs.map(doc => ({
           uid: doc.id,
           ...doc.data()
         })) as Child[];
         
+        console.log("Fetched children data:", childrenData);
         setChildren(childrenData);
       } catch (error) {
         console.error("Error fetching children:", error);

@@ -17,34 +17,34 @@ service cloud.firestore {
     // Expenses collection
     match /expenses/{expenseId} {
       // Users can read and write their own expenses
+      allow create: if request.auth != null;
       allow read, write: if request.auth != null && 
                          (resource.data.userId == request.auth.uid || 
                           resource.data.childId == request.auth.uid ||
                           exists(/databases/$(database)/documents/users/$(request.auth.uid)/children/$(resource.data.childId)));
-      allow create: if request.auth != null;
     }
     
     // Budget collection
     match /budgets/{budgetId} {
       // Allow parents to read and write budgets for their children
       // Allow children to read their own budgets
+      allow create: if request.auth != null;
       allow read: if request.auth != null && 
                    (resource.data.userId == request.auth.uid || 
                     resource.data.childId == request.auth.uid);
       allow write: if request.auth != null && 
                     (resource.data.userId == request.auth.uid ||
                      exists(/databases/$(database)/documents/users/$(resource.data.userId)/children/$(request.auth.uid)));
-      allow create: if request.auth != null;
     }
     
     // Requests collection
     match /requests/{requestId} {
       // Allow children to create requests and read their own
       // Allow parents to read and update requests from their children
+      allow create: if request.auth != null;
       allow read: if request.auth != null && 
                    (resource.data.userId == request.auth.uid || 
                     resource.data.parentId == request.auth.uid);
-      allow create: if request.auth != null;
       allow update: if request.auth != null && 
                      (resource.data.parentId == request.auth.uid || 
                       request.auth.uid == resource.data.userId);
