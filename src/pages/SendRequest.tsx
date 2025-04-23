@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -67,7 +66,10 @@ const SendRequest = () => {
         status: "pending",
         createdAt: Timestamp.now(),
       };
+      
+      console.log("Creating money request:", requestData);
 
+      // Make sure we're using the money_requests collection
       await addDoc(collection(db, "money_requests"), requestData);
       toast.success("Money request sent to your parent!");
       

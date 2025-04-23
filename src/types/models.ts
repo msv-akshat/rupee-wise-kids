@@ -41,12 +41,11 @@ export interface Budget {
 
 export interface Request {
   id: string;
-  userId: string; // Child ID who created the request
+  childId: string; // Child ID who created the request
   parentId: string;
   amount: number;
-  category: ExpenseCategory;
-  description: string;
-  status: 'pending' | 'approved' | 'denied';
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected';
   createdAt: Timestamp | Date;
   updatedAt?: Timestamp | Date;
   responseMessage?: string;

@@ -8,7 +8,7 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == userId;
       allow read: if request.auth != null && 
                    (request.auth.uid == userId || 
-                    exists(/databases/$(database)/documents/users/$(userId)/children/$(request.auth.uid)) ||
+                    exists(/databases/$(database)/documents/users/$(request.auth.uid)/children/$(userId)) ||
                     resource.data.parentId == request.auth.uid);
       allow create: if request.auth != null;
       
@@ -41,17 +41,17 @@ service cloud.firestore {
                      resource.data.parentId == request.auth.uid);
     }
     
-    // Requests collection
-    match /requests/{requestId} {
+    // Requests collection (money_requests)
+    match /money_requests/{requestId} {
       // Allow children to create requests and read their own
       // Allow parents to read and update requests from their children
       allow create: if request.auth != null;
       allow read: if request.auth != null && 
-                   (resource.data.userId == request.auth.uid || 
+                   (resource.data.childId == request.auth.uid || 
                     resource.data.parentId == request.auth.uid);
       allow update: if request.auth != null && 
                      (resource.data.parentId == request.auth.uid || 
-                      request.auth.uid == resource.data.userId);
+                      request.auth.uid == resource.data.childId);
     }
   }
 }

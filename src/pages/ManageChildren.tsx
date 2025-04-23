@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { collection, getDocs, query, doc, getDoc, updateDoc, Timestamp, addDoc } from "firebase/firestore";
+import { collection, getDocs, query, doc, getDoc, updateDoc, Timestamp, addDoc, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
   Card,
@@ -48,7 +48,6 @@ export default function ManageChildren() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Get child ID from URL query param if available
   useEffect(() => {
     const queryParams = new URLSearchParams(location.search);
     const childId = queryParams.get('child');
@@ -149,40 +148,36 @@ export default function ManageChildren() {
     try {
       setIsLoading(true);
       
-      // Fetch child's expenses
+      // Fetch child's expenses with proper where clause
       const expensesQuery = query(
         collection(db, 'expenses'),
-        // where('childId', '==', child.uid)
+        where('userId', '==', child.uid)
       );
       
       const expensesSnapshot = await getDocs(expensesQuery);
+      console.log("Child expenses fetched:", expensesSnapshot.size);
       
-      // Filter client-side to avoid composite index issues
-      const childExpenses = expensesSnapshot.docs
-        .filter(doc => doc.data().childId === child.uid)
-        .map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
+      const childExpenses = expensesSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
       
       // Calculate total spent
       const totalSpent = childExpenses.reduce((sum: number, expense: any) => sum + expense.amount, 0);
       
-      // Fetch child's budgets
+      // Fetch child's budgets with proper where clause
       const budgetsQuery = query(
         collection(db, 'budgets'),
-        // where('childId', '==', child.uid)
+        where('childId', '==', child.uid)
       );
       
       const budgetsSnapshot = await getDocs(budgetsQuery);
+      console.log("Child budgets fetched:", budgetsSnapshot.size);
       
-      // Filter client-side
-      const childBudgets = budgetsSnapshot.docs
-        .filter(doc => doc.data().childId === child.uid)
-        .map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
+      const childBudgets = budgetsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
       
       setChildDetails({
         expenses: childExpenses,

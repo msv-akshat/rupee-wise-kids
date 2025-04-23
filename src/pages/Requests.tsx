@@ -41,20 +41,33 @@ const Requests = () => {
         const childrenSnap = await getDocs(childrenRef);
         const childIds = childrenSnap.docs.map(doc => doc.id);
         
+        console.log("Fetching requests for children:", childIds);
+        
         if (childIds.length === 0) {
           setIsLoading(false);
           return;
         }
         
-        // Query money requests from all children
+        // Query money_requests collection instead of money_requests
         const requestsRef = collection(db, 'money_requests');
-        const q = query(
-          requestsRef,
-          where('childId', 'in', childIds),
-          orderBy('createdAt', 'desc')
-        );
+        let requestsQuery;
         
-        const requestsSnap = await getDocs(q);
+        if (childIds.length === 1) {
+          requestsQuery = query(
+            requestsRef,
+            where('parentId', '==', currentUser.uid),
+            orderBy('createdAt', 'desc')
+          );
+        } else {
+          requestsQuery = query(
+            requestsRef,
+            where('parentId', '==', currentUser.uid),
+            orderBy('createdAt', 'desc')
+          );
+        }
+        
+        const requestsSnap = await getDocs(requestsQuery);
+        console.log("Money requests fetched:", requestsSnap.size);
         
         // Map children names to their requests
         const childrenData = childrenSnap.docs.reduce((acc, doc) => {
@@ -70,13 +83,14 @@ const Requests = () => {
             childId: data.childId,
             childName: childrenData[data.childId] || 'Unknown Child',
             amount: data.amount,
-            reason: data.reason,
+            reason: data.reason || "",
             status: data.status,
             createdAt: data.createdAt,
           } as MoneyRequest;
         });
         
         setRequests(requestsList);
+        console.log("Processed requests:", requestsList);
       } catch (error) {
         console.error("Error fetching requests:", error);
         toast.error("Failed to load money requests");
