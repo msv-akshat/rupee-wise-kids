@@ -37,6 +37,7 @@ interface Expense {
   description: string;
   date: Timestamp;
   userId: string;
+  childId?: string;
   createdAt: Timestamp;
 }
 
@@ -52,11 +53,27 @@ const ExpenseView = () => {
       if (!currentUser) return;
 
       try {
-        let expensesQuery = query(
-          collection(db, "expenses"),
-          where("userId", "==", currentUser.uid),
-          orderBy("date", "desc")
-        );
+        setIsLoading(true);
+        
+        // Create a base query that works for both child and parent viewing child's expenses
+        let baseQuery;
+        
+        if (currentUser.role === 'child') {
+          // If the user is a child, show their expenses
+          baseQuery = query(
+            collection(db, "expenses"),
+            where("userId", "==", currentUser.uid)
+          );
+        } else {
+          // If parent role, this page shouldn't normally be accessed, but we'll handle it
+          // For future functionality where parent might view child expenses
+          baseQuery = query(
+            collection(db, "expenses"),
+            where("userId", "==", currentUser.uid)
+          );
+        }
+        
+        let expensesQuery = baseQuery;
 
         const now = new Date();
         
@@ -64,28 +81,32 @@ const ExpenseView = () => {
           // Last 7 days
           const lastWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
           expensesQuery = query(
-            collection(db, "expenses"),
-            where("userId", "==", currentUser.uid),
-            where("date", ">=", Timestamp.fromDate(lastWeek)),
-            orderBy("date", "desc")
+            baseQuery,
+            where("date", ">=", Timestamp.fromDate(lastWeek))
           );
         } else if (timeframe === "month") {
           // Last 30 days
           const lastMonth = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
           expensesQuery = query(
-            collection(db, "expenses"),
-            where("userId", "==", currentUser.uid),
-            where("date", ">=", Timestamp.fromDate(lastMonth)),
-            orderBy("date", "desc")
+            baseQuery,
+            where("date", ">=", Timestamp.fromDate(lastMonth))
           );
         }
 
+        // Add orderBy after all where clauses
+        expensesQuery = query(expensesQuery, orderBy("date", "desc"));
+        
+        console.log("Fetching expenses for user:", currentUser.uid, "with role:", currentUser.role);
+        
         const expensesSnapshot = await getDocs(expensesQuery);
+        console.log("Expenses snapshot size:", expensesSnapshot.size);
+        
         const expensesData = expensesSnapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         })) as Expense[];
 
+        console.log("Expenses data:", expensesData);
         setExpenses(expensesData);
       } catch (error) {
         console.error("Error fetching expenses:", error);
