@@ -56,8 +56,17 @@ import {
 // Chart colors
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#A569BD', '#5DADE2', '#48C9B0', '#F4D03F'];
 
+// Format currency
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 0
+  }).format(amount);
+};
+
 // Custom tooltip formatter to resolve the TypeScript spread error
-const tooltipFormatter = (value: any) => {
+const tooltipFormatter = (value: number | string) => {
   if (typeof value === 'number') {
     return formatCurrency(value);
   }
@@ -172,15 +181,6 @@ export default function Analytics() {
     });
   };
 
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0
-    }).format(amount);
-  };
-
   // Group expenses by category and calculate totals
   const getCategoryData = () => {
     const filteredExpenses = getFilteredExpenses();
@@ -230,6 +230,16 @@ export default function Analytics() {
     );
   }
 
+  // Handle date range selection ensuring we always have both from and to dates
+  const handleDateRangeSelect = (range: { from?: Date; to?: Date } | undefined) => {
+    if (range?.from) {
+      setDateRange({
+        from: range.from,
+        to: range.to || range.from // If 'to' is not selected, use 'from' as fallback
+      });
+    }
+  };
+
   return (
     <div className="space-y-6 animate-in">
       <div className="flex justify-between items-center">
@@ -269,11 +279,7 @@ export default function Analytics() {
                   mode="range"
                   defaultMonth={dateRange.from}
                   selected={dateRange}
-                  onSelect={(range) => {
-                    if (range?.from && range?.to) {
-                      setDateRange(range);
-                    }
-                  }}
+                  onSelect={handleDateRangeSelect}
                   numberOfMonths={2}
                 />
               </PopoverContent>
@@ -390,7 +396,7 @@ export default function Analytics() {
                               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                             ))}
                           </Pie>
-                          <Tooltip formatter={tooltipFormatter} />
+                          <RechartsTooltip formatter={tooltipFormatter} />
                           <Legend />
                         </RechartsPie>
                       </ResponsiveContainer>
