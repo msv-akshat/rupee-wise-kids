@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { IndianRupee } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { Expense } from "@/types/models";
+import { CategorySummary } from "./CategorySummary";
 
 interface ExpenseSummaryProps {
   expenses: Expense[];
