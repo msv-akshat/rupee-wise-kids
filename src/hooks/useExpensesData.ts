@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { collection, query, where, getDocs, orderBy, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { Expense } from "@/types/models";
+import { Expense, ExpenseCategory } from "@/types/models";
 import { useAuth } from "@/contexts/AuthContext";
 
 export const useExpensesData = () => {
@@ -44,7 +44,7 @@ export const useExpensesData = () => {
               return {
                 id: doc.id,
                 amount: data.amount as number,
-                category: data.category as string,
+                category: data.category as ExpenseCategory,
                 description: data.description as string,
                 date: data.date as Timestamp,
                 userId: data.userId as string,
@@ -66,7 +66,7 @@ export const useExpensesData = () => {
             return {
               id: doc.id,
               amount: data.amount as number,
-              category: data.category as string,
+              category: data.category as ExpenseCategory,
               description: data.description as string,
               date: data.date as Timestamp,
               userId: data.userId as string,

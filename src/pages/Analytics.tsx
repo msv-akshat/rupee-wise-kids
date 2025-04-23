@@ -1,6 +1,7 @@
 
 import React, { useState } from "react";
-import { subDays, subMonths, isAfter, Timestamp } from "date-fns";
+import { subDays, subMonths, isAfter } from "date-fns";
+import { Timestamp } from "firebase/firestore";
 import { BarChart3 } from "lucide-react";
 import {
   Card,
