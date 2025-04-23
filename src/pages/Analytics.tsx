@@ -222,6 +222,12 @@ const Analytics = () => {
   const categoryData = getCategoryData();
   const timeSeriesData = getTimeSeriesData();
 
+  // Fix for the TypeScript error - Create a custom formatter function for the tooltip
+  // that safely handles the value parameter without using spread
+  const tooltipFormatter = (value: number) => {
+    return formatCurrency(value);
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-full">
@@ -385,9 +391,7 @@ const Analytics = () => {
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip 
-                        formatter={(value: number) => formatCurrency(value)} 
-                      />
+                      <Tooltip formatter={tooltipFormatter} />
                     </RechartsPie>
                   </ResponsiveContainer>
                 ) : (
@@ -404,7 +408,7 @@ const Analytics = () => {
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="date" />
                       <YAxis />
-                      <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                      <Tooltip formatter={tooltipFormatter} />
                       <Line
                         type="monotone"
                         dataKey="amount"
