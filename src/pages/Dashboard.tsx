@@ -57,12 +57,22 @@ export default function Dashboard() {
           const parentExpensesSnapshot = await getDocs(parentExpensesQuery);
           console.log("Parent's expenses count:", parentExpensesSnapshot.size);
           
-          const parentExpenses: Expense[] = parentExpensesSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-            isParentExpense: true
-          } as Expense));
-          
+          const parentExpenses = parentExpensesSnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              userId: data.userId,
+              amount: data.amount,
+              category: data.category,
+              description: data.description,
+              date: data.date,
+              childId: data.childId,
+              createdAt: data.createdAt,
+              updatedAt: data.updatedAt,
+              isParentExpense: true
+            } as Expense;
+          });
+
           // Sort manually
           parentExpenses.sort((a, b) => {
             const dateA = a.date as Timestamp;
@@ -71,89 +81,105 @@ export default function Dashboard() {
           });
 
           // Fetch children for parent
-          const childrenRef = collection(db, 'users', currentUser.uid, 'children');
-          const childrenSnapshot = await getDocs(childrenRef);
-          
-          console.log("Parent's children count:", childrenSnapshot.size);
-          
-          const childrenData = childrenSnapshot.docs.map(doc => ({
-            uid: doc.id,
-            ...doc.data(),
-          })) as Child[];
-          
-          setChildren(childrenData);
-
-          // If there are children, fetch the first child's expenses and budget
-          if (childrenData.length > 0) {
-            const firstChildId = childrenData[0].uid;
-            setSelectedChild(firstChildId);
-            console.log("Fetching expenses for first child:", firstChildId);
+          try {
+            const childrenRef = collection(db, 'users', currentUser.uid, 'children');
+            const childrenSnapshot = await getDocs(childrenRef);
             
-            // Fetch recent expenses without orderBy
-            const childExpensesQuery = query(
-              collection(db, 'expenses'),
-              where('childId', '==', firstChildId),
-              limit(5)
-            );
+            console.log("Parent's children count:", childrenSnapshot.size);
             
-            const childExpensesSnapshot = await getDocs(childExpensesQuery);
-            console.log("First child's expenses count:", childExpensesSnapshot.size);
-            
-            const childExpenses: Expense[] = childExpensesSnapshot.docs.map(doc => ({
-              id: doc.id,
+            const childrenData = childrenSnapshot.docs.map(doc => ({
+              uid: doc.id,
               ...doc.data(),
-              isChildExpense: true
-            } as Expense));
+            })) as Child[];
             
-            // Sort manually
-            childExpenses.sort((a, b) => {
-              const dateA = a.date as Timestamp;
-              const dateB = b.date as Timestamp;
-              return dateB.toMillis() - dateA.toMillis();
-            });
-            
-            // Combine parent and child expenses, limiting to 5 most recent
-            const allExpenses = [...parentExpenses, ...childExpenses]
-              .sort((a, b) => {
+            setChildren(childrenData);
+
+            // If there are children, fetch the first child's expenses and budget
+            if (childrenData.length > 0) {
+              const firstChildId = childrenData[0].uid;
+              setSelectedChild(firstChildId);
+              console.log("Fetching expenses for first child:", firstChildId);
+              
+              // Fetch recent expenses without orderBy
+              const childExpensesQuery = query(
+                collection(db, 'expenses'),
+                where('userId', '==', firstChildId),
+                limit(5)
+              );
+              
+              const childExpensesSnapshot = await getDocs(childExpensesQuery);
+              console.log("First child's expenses count:", childExpensesSnapshot.size);
+              
+              const childExpenses = childExpensesSnapshot.docs.map(doc => {
+                const data = doc.data();
+                return {
+                  id: doc.id,
+                  userId: data.userId,
+                  amount: data.amount,
+                  category: data.category,
+                  description: data.description,
+                  date: data.date,
+                  childId: firstChildId,
+                  createdAt: data.createdAt,
+                  updatedAt: data.updatedAt,
+                  isChildExpense: true,
+                  parentId: currentUser.uid
+                } as Expense;
+              });
+              
+              // Sort manually
+              childExpenses.sort((a, b) => {
                 const dateA = a.date as Timestamp;
                 const dateB = b.date as Timestamp;
                 return dateB.toMillis() - dateA.toMillis();
-              })
-              .slice(0, 5);
+              });
               
-            setRecentExpenses(allExpenses);
-            
-            // Calculate total spent
-            const totalParent = parentExpenses.reduce((sum, expense) => sum + expense.amount, 0);
-            const totalChild = childExpenses.reduce((sum, expense) => sum + expense.amount, 0);
-            setTotalSpent(totalParent + totalChild);
-            
-            // Fetch active budget for selected child
-            const now = Timestamp.now();
-            const budgetQuery = query(
-              collection(db, 'budgets'),
-              where('childId', '==', firstChildId),
-              where('startDate', '<=', now),
-              where('endDate', '>=', now),
-              limit(1)
-            );
-            
-            const budgetSnapshot = await getDocs(budgetQuery);
-            
-            if (!budgetSnapshot.empty) {
-              const budgetData = {
-                id: budgetSnapshot.docs[0].id,
-                ...budgetSnapshot.docs[0].data(),
-              } as Budget;
+              // Combine parent and child expenses, limiting to 5 most recent
+              const allExpenses = [...parentExpenses, ...childExpenses]
+                .sort((a, b) => {
+                  const dateA = a.date as Timestamp;
+                  const dateB = b.date as Timestamp;
+                  return dateB.toMillis() - dateA.toMillis();
+                })
+                .slice(0, 5);
+                
+              setRecentExpenses(allExpenses);
               
-              setBudgetInfo(budgetData);
+              // Calculate total spent
+              const totalParent = parentExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+              const totalChild = childExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+              setTotalSpent(totalParent + totalChild);
+              
+              // Fetch active budget for selected child
+              const now = Timestamp.now();
+              const budgetQuery = query(
+                collection(db, 'budgets'),
+                where('childId', '==', firstChildId),
+                where('startDate', '<=', now),
+                where('endDate', '>=', now),
+                limit(1)
+              );
+              
+              const budgetSnapshot = await getDocs(budgetQuery);
+              
+              if (!budgetSnapshot.empty) {
+                const budgetData = {
+                  id: budgetSnapshot.docs[0].id,
+                  ...budgetSnapshot.docs[0].data(),
+                } as Budget;
+                
+                setBudgetInfo(budgetData);
+              } else {
+                setBudgetInfo(null);
+              }
             } else {
+              setRecentExpenses(parentExpenses);
+              setTotalSpent(parentExpenses.reduce((sum, expense) => sum + expense.amount, 0));
               setBudgetInfo(null);
             }
-          } else {
-            setRecentExpenses(parentExpenses);
-            setTotalSpent(parentExpenses.reduce((sum, expense) => sum + expense.amount, 0));
-            setBudgetInfo(null);
+          } catch (error) {
+            console.error("Error fetching children data:", error);
+            toast.error("Failed to load child details");
           }
         } else if (userRole === 'child') {
           console.log("Fetching child's expenses");
@@ -168,10 +194,21 @@ export default function Dashboard() {
           const expensesSnapshot = await getDocs(expensesQuery);
           console.log("Child's expenses count:", expensesSnapshot.size);
           
-          let expensesData = expensesSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-          })) as Expense[];
+          let expensesData = expensesSnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              userId: data.userId,
+              amount: data.amount,
+              category: data.category,
+              description: data.description,
+              date: data.date,
+              childId: data.childId,
+              createdAt: data.createdAt,
+              updatedAt: data.updatedAt,
+              parentId: data.parentId
+            } as Expense;
+          });
           
           // Sort manually
           expensesData.sort((a, b) => {
@@ -224,6 +261,7 @@ export default function Dashboard() {
         }
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
+        toast.error("Failed to load dashboard data");
       } finally {
         setIsLoading(false);
       }
@@ -239,32 +277,8 @@ export default function Dashboard() {
       return;
     }
 
-    try {
-      // Navigate to budget creation page (to be implemented later)
-      // For now, create a simple monthly budget as example
-      const now = new Date();
-      const startDate = new Date(now.getFullYear(), now.getMonth(), 1); // First day of current month
-      const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0); // Last day of current month
-      
-      const budgetData = {
-        childId: selectedChild,
-        userId: currentUser?.uid,
-        amount: 5000, // Default budget amount
-        period: "monthly",
-        startDate: Timestamp.fromDate(startDate),
-        endDate: Timestamp.fromDate(endDate),
-        createdAt: Timestamp.now()
-      };
-      
-      await addDoc(collection(db, "budgets"), budgetData);
-      toast.success("Budget created successfully!");
-      
-      // Update the budgetInfo state
-      setBudgetInfo(budgetData as Budget);
-    } catch (error) {
-      console.error("Error creating budget:", error);
-      toast.error("Failed to create budget");
-    }
+    // Navigate to budget creation page
+    navigate("/create-budget");
   };
   
   if (isLoading) {

@@ -4,6 +4,7 @@ import { collection, query, where, getDocs, Timestamp, doc, getDoc } from "fireb
 import { db } from "@/lib/firebase";
 import { Expense, ExpenseCategory } from "@/types/models";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 export const useExpensesData = () => {
   const { currentUser, userRole } = useAuth();
@@ -34,53 +35,61 @@ export const useExpensesData = () => {
             const data = doc.data();
             return {
               id: doc.id,
-              amount: data.amount as number,
-              category: data.category as ExpenseCategory,
-              description: data.description as string,
-              date: data.date as Timestamp,
-              userId: data.userId as string,
-              childId: data.childId as string || null,
-              createdAt: data.createdAt as Timestamp,
+              userId: data.userId,
+              amount: data.amount,
+              category: data.category,
+              description: data.description,
+              date: data.date,
+              childId: data.childId,
+              createdAt: data.createdAt,
+              updatedAt: data.updatedAt,
               isParentExpense: true,
             } as Expense;
           });
           
-          expensesData = [...expensesData, ...parentExpenses];
+          expensesData = [...parentExpenses];
           
           // Fetch children's expenses
-          const childrenSnapshot = await getDocs(collection(db, 'users', currentUser.uid, 'children'));
-          const childrenIds = childrenSnapshot.docs.map(doc => doc.id);
-          
-          console.log("Parent's children IDs:", childrenIds);
-          
-          // For each child, fetch their expenses
-          for (const childId of childrenIds) {
-            console.log("Fetching expenses for child:", childId);
+          try {
+            const childrenSnapshot = await getDocs(collection(db, 'users', currentUser.uid, 'children'));
+            const childrenIds = childrenSnapshot.docs.map(doc => doc.id);
             
-            const childExpensesQuery = query(
-              collection(db, 'expenses'),
-              where('childId', '==', childId)
-            );
+            console.log("Parent's children IDs:", childrenIds);
             
-            const expensesSnapshot = await getDocs(childExpensesQuery);
-            console.log("Child expenses snapshot size:", expensesSnapshot.size);
-            
-            const childExpenses = expensesSnapshot.docs.map(doc => {
-              const data = doc.data();
-              return {
-                id: doc.id,
-                amount: data.amount as number,
-                category: data.category as ExpenseCategory,
-                description: data.description as string,
-                date: data.date as Timestamp,
-                userId: data.userId as string,
-                childId: data.childId as string,
-                createdAt: data.createdAt as Timestamp,
-                isChildExpense: true,
-              } as Expense;
-            });
-            
-            expensesData = [...expensesData, ...childExpenses];
+            // For each child, fetch their expenses
+            for (const childId of childrenIds) {
+              console.log("Fetching expenses for child:", childId);
+              
+              const childExpensesQuery = query(
+                collection(db, 'expenses'),
+                where('userId', '==', childId)
+              );
+              
+              const expensesSnapshot = await getDocs(childExpensesQuery);
+              console.log("Child expenses snapshot size:", expensesSnapshot.size);
+              
+              const childExpenses = expensesSnapshot.docs.map(doc => {
+                const data = doc.data();
+                return {
+                  id: doc.id,
+                  userId: data.userId,
+                  amount: data.amount,
+                  category: data.category,
+                  description: data.description,
+                  date: data.date,
+                  childId: childId,
+                  createdAt: data.createdAt,
+                  updatedAt: data.updatedAt,
+                  isChildExpense: true,
+                  parentId: currentUser.uid
+                } as Expense;
+              });
+              
+              expensesData = [...expensesData, ...childExpenses];
+            }
+          } catch (error) {
+            console.error("Error fetching children expenses:", error);
+            toast.error("Failed to load child expenses data");
           }
         } else {
           // For child users, fetch their own expenses
@@ -98,13 +107,15 @@ export const useExpensesData = () => {
             const data = doc.data();
             return {
               id: doc.id,
-              amount: data.amount as number,
-              category: data.category as ExpenseCategory,
-              description: data.description as string,
-              date: data.date as Timestamp,
-              userId: data.userId as string,
-              childId: data.childId as string,
-              createdAt: data.createdAt as Timestamp,
+              userId: data.userId,
+              amount: data.amount,
+              category: data.category,
+              description: data.description,
+              date: data.date,
+              childId: data.childId,
+              createdAt: data.createdAt,
+              updatedAt: data.updatedAt,
+              parentId: data.parentId
             } as Expense;
           });
         }
@@ -120,6 +131,7 @@ export const useExpensesData = () => {
         setExpenses(expensesData);
       } catch (error) {
         console.error("Error fetching expenses:", error);
+        toast.error("Failed to load expense data");
       } finally {
         setIsLoading(false);
       }

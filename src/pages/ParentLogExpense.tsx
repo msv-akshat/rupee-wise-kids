@@ -1,11 +1,11 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { addDoc, collection, Timestamp } from "firebase/firestore";
+import { addDoc, collection, Timestamp, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
   Card,
@@ -35,6 +35,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { IndianRupee, Receipt } from "lucide-react";
+import { Child } from "@/types/models";
 
 const expenseSchema = z.object({
   amount: z.string().refine(val => !isNaN(Number(val)) && Number(val) > 0, {
@@ -45,26 +46,52 @@ const expenseSchema = z.object({
   date: z.string().refine(val => !isNaN(Date.parse(val)), {
     message: "Please enter a valid date",
   }),
+  expenseFor: z.string().min(1, { message: "Please select who this expense is for" }),
+  childId: z.string().optional(),
 });
 
 type ExpenseFormValues = z.infer<typeof expenseSchema>;
 
 const categories = [
-  "Food",
-  "Transportation",
-  "Education",
-  "Entertainment",
-  "Shopping",
-  "Health",
-  "Household",
-  "Bills",
-  "Other",
+  "food",
+  "transport",
+  "education",
+  "entertainment",
+  "clothing",
+  "health",
+  "gifts",
+  "other",
 ];
 
 const ParentLogExpense = () => {
   const { currentUser } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [children, setChildren] = useState<Child[]>([]);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchChildren = async () => {
+      if (!currentUser) return;
+      
+      try {
+        const childrenSnapshot = await getDocs(
+          collection(db, 'users', currentUser.uid, 'children')
+        );
+        
+        const childrenData = childrenSnapshot.docs.map(doc => ({
+          uid: doc.id,
+          ...doc.data(),
+        })) as Child[];
+        
+        setChildren(childrenData);
+      } catch (error) {
+        console.error("Error fetching children:", error);
+        toast.error("Failed to load children");
+      }
+    };
+    
+    fetchChildren();
+  }, [currentUser]);
 
   const form = useForm<ExpenseFormValues>({
     resolver: zodResolver(expenseSchema),
@@ -73,8 +100,12 @@ const ParentLogExpense = () => {
       category: "",
       description: "",
       date: new Date().toISOString().split("T")[0], // Today's date in YYYY-MM-DD format
+      expenseFor: "parent", // Default to parent expense
+      childId: "",
     },
   });
+
+  const watchExpenseFor = form.watch("expenseFor");
 
   const onSubmit = async (values: ExpenseFormValues) => {
     if (!currentUser) {
@@ -84,23 +115,37 @@ const ParentLogExpense = () => {
 
     setIsLoading(true);
     try {
+      const isParentExpense = values.expenseFor === "parent";
+      const selectedChildId = values.childId;
+      
       const expenseData = {
         amount: Number(values.amount),
-        category: values.category,
+        category: values.category as any,
         description: values.description || "",
         date: Timestamp.fromDate(new Date(values.date)),
-        userId: currentUser.uid,
-        childId: null, // This is a parent expense
+        userId: isParentExpense ? currentUser.uid : selectedChildId,
+        childId: isParentExpense ? null : selectedChildId,
         createdAt: Timestamp.now(),
-        isParentExpense: true
+        isParentExpense: isParentExpense,
+        isChildExpense: !isParentExpense,
+        parentId: currentUser.uid
       };
 
       await addDoc(collection(db, "expenses"), expenseData);
       toast.success("Expense logged successfully!");
       
-      // Reset form and navigate to the analytics page
-      form.reset();
-      navigate("/analytics");
+      // Reset form and navigate
+      form.reset({
+        amount: "",
+        category: "",
+        description: "",
+        date: new Date().toISOString().split("T")[0],
+        expenseFor: "parent",
+        childId: "",
+      });
+      
+      // Navigate to the appropriate page based on expense type
+      navigate(isParentExpense ? "/parent-expenses" : "/analytics");
     } catch (error) {
       console.error("Error logging expense:", error);
       toast.error("Failed to log expense. Please try again.");
@@ -116,15 +161,72 @@ const ParentLogExpense = () => {
           <CardHeader>
             <div className="flex items-center space-x-2">
               <Receipt className="h-6 w-6 text-primary" />
-              <CardTitle>Log Parent Expense</CardTitle>
+              <CardTitle>Log Expense</CardTitle>
             </div>
             <CardDescription>
-              Keep track of your own spending by logging your expenses
+              Track expenses for yourself or your children
             </CardDescription>
           </CardHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
               <CardContent className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="expenseFor"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Expense For</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                        disabled={isLoading}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select who this expense is for" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="parent">Myself (Parent)</SelectItem>
+                          <SelectItem value="child">Child</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                {watchExpenseFor === "child" && (
+                  <FormField
+                    control={form.control}
+                    name="childId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Select Child</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value}
+                          disabled={isLoading || children.length === 0}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a child" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {children.map((child) => (
+                              <SelectItem key={child.uid} value={child.uid}>
+                                {child.displayName}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+
                 <FormField
                   control={form.control}
                   name="amount"
@@ -166,7 +268,7 @@ const ParentLogExpense = () => {
                         <SelectContent>
                           {categories.map((category) => (
                             <SelectItem key={category} value={category}>
-                              {category}
+                              {category.charAt(0).toUpperCase() + category.slice(1)}
                             </SelectItem>
                           ))}
                         </SelectContent>

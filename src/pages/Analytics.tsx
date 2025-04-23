@@ -33,6 +33,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 
 export default function Analytics() {
   const { expenses, isLoading } = useExpensesData();
@@ -68,6 +69,7 @@ export default function Analytics() {
           console.log("Fetched children for analytics:", childrenData);
         } catch (error) {
           console.error("Error fetching children:", error);
+          toast.error("Failed to load children data");
         }
       }
     };
@@ -109,11 +111,11 @@ export default function Analytics() {
       if (expenseType === 'parent') {
         filtered = filtered.filter(expense => expense.isParentExpense === true);
       } else if (expenseType === 'child') {
-        filtered = filtered.filter(expense => expense.isParentExpense !== true);
+        filtered = filtered.filter(expense => expense.isChildExpense === true || (expense.childId && !expense.isParentExpense));
         
         // Further filter by selected child
         if (selectedChild !== 'all') {
-          filtered = filtered.filter(expense => expense.childId === selectedChild);
+          filtered = filtered.filter(expense => expense.userId === selectedChild || expense.childId === selectedChild);
         }
       }
     }

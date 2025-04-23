@@ -23,6 +23,7 @@ export interface Expense {
   updatedAt?: Timestamp | Date;
   isParentExpense?: boolean; // Added for parent expenses
   isChildExpense?: boolean; // Added for child expenses
+  parentId?: string; // ID of the parent if this is a child expense
 }
 
 export interface Budget {

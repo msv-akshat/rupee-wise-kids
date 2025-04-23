@@ -22,10 +22,10 @@ service cloud.firestore {
     match /expenses/{expenseId} {
       // Users can read and write their own expenses
       allow create: if request.auth != null;
-      allow read, update, delete: if request.auth != null && 
+      allow read: if request.auth != null;
+      allow update, delete: if request.auth != null && 
                           (resource.data.userId == request.auth.uid || 
                            resource.data.childId == request.auth.uid ||
-                           exists(/databases/$(database)/documents/users/$(request.auth.uid)/children/$(resource.data.userId)) ||
                            resource.data.parentId == request.auth.uid);
     }
     
@@ -34,10 +34,7 @@ service cloud.firestore {
       // Allow parents to read and write budgets for their children
       // Allow children to read their own budgets
       allow create: if request.auth != null;
-      allow read: if request.auth != null && 
-                   (resource.data.userId == request.auth.uid || 
-                    resource.data.childId == request.auth.uid ||
-                    resource.data.parentId == request.auth.uid);
+      allow read: if request.auth != null;
       allow update, delete: if request.auth != null && 
                     (resource.data.userId == request.auth.uid ||
                      exists(/databases/$(database)/documents/users/$(request.auth.uid)/children/$(resource.data.childId)) ||
