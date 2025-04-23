@@ -18,12 +18,14 @@ import {
   limit, 
   doc, 
   getDoc, 
-  Timestamp 
+  Timestamp,
+  addDoc
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Expense, Budget, Child } from "@/types/models";
-import { PieChart, BarChart } from "lucide-react";
+import { PieChart, BarChart, Plus, Receipt } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 export default function Dashboard() {
   const { currentUser, userRole } = useAuth();
@@ -33,6 +35,7 @@ export default function Dashboard() {
   const [totalSpent, setTotalSpent] = useState(0);
   const [budgetInfo, setBudgetInfo] = useState<Budget | null>(null);
   const [children, setChildren] = useState<Child[]>([]);
+  const [selectedChild, setSelectedChild] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -44,6 +47,29 @@ export default function Dashboard() {
         
         // Different data fetching based on user role
         if (userRole === 'parent') {
+          // Fetch parent's own expenses
+          const parentExpensesQuery = query(
+            collection(db, 'expenses'),
+            where('userId', '==', currentUser.uid),
+            limit(5)
+          );
+          
+          const parentExpensesSnapshot = await getDocs(parentExpensesQuery);
+          console.log("Parent's expenses count:", parentExpensesSnapshot.size);
+          
+          let parentExpenses = parentExpensesSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            isParentExpense: true
+          })) as Expense[];
+          
+          // Sort manually
+          parentExpenses.sort((a, b) => {
+            const dateA = a.date as Timestamp;
+            const dateB = b.date as Timestamp;
+            return dateB.toMillis() - dateA.toMillis();
+          });
+
           // Fetch children for parent
           const childrenRef = collection(db, 'users', currentUser.uid, 'children');
           const childrenSnapshot = await getDocs(childrenRef);
@@ -56,41 +82,53 @@ export default function Dashboard() {
           })) as Child[];
           
           setChildren(childrenData);
-          
+
           // If there are children, fetch the first child's expenses and budget
           if (childrenData.length > 0) {
             const firstChildId = childrenData[0].uid;
+            setSelectedChild(firstChildId);
             console.log("Fetching expenses for first child:", firstChildId);
             
             // Fetch recent expenses without orderBy
-            const expensesQuery = query(
+            const childExpensesQuery = query(
               collection(db, 'expenses'),
               where('childId', '==', firstChildId),
               limit(5)
             );
             
-            const expensesSnapshot = await getDocs(expensesQuery);
-            console.log("First child's expenses count:", expensesSnapshot.size);
+            const childExpensesSnapshot = await getDocs(childExpensesQuery);
+            console.log("First child's expenses count:", childExpensesSnapshot.size);
             
-            let expensesData = expensesSnapshot.docs.map(doc => ({
+            let childExpenses = childExpensesSnapshot.docs.map(doc => ({
               id: doc.id,
               ...doc.data(),
+              isChildExpense: true
             })) as Expense[];
             
             // Sort manually
-            expensesData.sort((a, b) => {
+            childExpenses.sort((a, b) => {
               const dateA = a.date as Timestamp;
               const dateB = b.date as Timestamp;
               return dateB.toMillis() - dateA.toMillis();
             });
             
-            setRecentExpenses(expensesData);
+            // Combine parent and child expenses, limiting to 5 most recent
+            const allExpenses = [...parentExpenses, ...childExpenses]
+              .sort((a, b) => {
+                const dateA = a.date as Timestamp;
+                const dateB = b.date as Timestamp;
+                return dateB.toMillis() - dateA.toMillis();
+              })
+              .slice(0, 5);
+              
+            setRecentExpenses(allExpenses);
             
             // Calculate total spent
-            const total = expensesData.reduce((sum, expense) => sum + expense.amount, 0);
-            setTotalSpent(total);
+            const totalParent = parentExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+            const totalChild = childExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+            setTotalSpent(totalParent + totalChild);
             
-            // Fetch active budget
+            // Fetch active budget for selected child
             const now = Timestamp.now();
             const budgetQuery = query(
               collection(db, 'budgets'),
@@ -113,9 +151,8 @@ export default function Dashboard() {
               setBudgetInfo(null);
             }
           } else {
-            // No children, reset states
-            setRecentExpenses([]);
-            setTotalSpent(0);
+            setRecentExpenses(parentExpenses);
+            setTotalSpent(parentExpenses.reduce((sum, expense) => sum + expense.amount, 0));
             setBudgetInfo(null);
           }
         } else if (userRole === 'child') {
@@ -194,6 +231,41 @@ export default function Dashboard() {
 
     fetchDashboardData();
   }, [currentUser, userRole]);
+
+  // Handle create budget function
+  const handleCreateBudget = async () => {
+    if (userRole !== 'parent' || !selectedChild) {
+      toast.error("You need to select a child to create a budget for");
+      return;
+    }
+
+    try {
+      // Navigate to budget creation page (to be implemented later)
+      // For now, create a simple monthly budget as example
+      const now = new Date();
+      const startDate = new Date(now.getFullYear(), now.getMonth(), 1); // First day of current month
+      const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0); // Last day of current month
+      
+      const budgetData = {
+        childId: selectedChild,
+        userId: currentUser?.uid,
+        amount: 5000, // Default budget amount
+        period: "monthly",
+        startDate: Timestamp.fromDate(startDate),
+        endDate: Timestamp.fromDate(endDate),
+        createdAt: Timestamp.now()
+      };
+      
+      await addDoc(collection(db, "budgets"), budgetData);
+      toast.success("Budget created successfully!");
+      
+      // Update the budgetInfo state
+      setBudgetInfo(budgetData as Budget);
+    } catch (error) {
+      console.error("Error creating budget:", error);
+      toast.error("Failed to create budget");
+    }
+  };
   
   if (isLoading) {
     return (
@@ -241,14 +313,25 @@ export default function Dashboard() {
             <Button 
               onClick={() => navigate("/log-expense")}
             >
+              <Plus className="mr-2 h-4 w-4" />
               Log Expense
             </Button>
           ) : (
-            <Button 
-              onClick={() => navigate(children.length ? "/manage-children" : "/create-child")}
-            >
-              {children.length ? "Manage Children" : "Add Child"}
-            </Button>
+            <>
+              <Button 
+                variant="outline"
+                onClick={() => navigate("/parent-expenses")}
+              >
+                <Receipt className="mr-2 h-4 w-4" />
+                My Expenses
+              </Button>
+              <Button 
+                onClick={() => navigate(children.length ? "/parent-log-expense" : "/create-child")}
+              >
+                {children.length ? <Plus className="mr-2 h-4 w-4" /> : null}
+                {children.length ? "Log Expense" : "Add Child"}
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -292,7 +375,7 @@ export default function Dashboard() {
           </CardContent>
           <CardFooter className="pt-1">
             {userRole === 'parent' && (
-              <Button variant="outline" size="sm" className="w-full" onClick={() => navigate("/manage-children")}>
+              <Button variant="outline" size="sm" className="w-full" onClick={handleCreateBudget}>
                 {budgetInfo ? 'Update Budget' : 'Create Budget'}
               </Button>
             )}
@@ -317,6 +400,12 @@ export default function Dashboard() {
                   <div key={expense.id} className="flex justify-between items-center text-sm">
                     <div className="flex items-center">
                       <span className="capitalize">{expense.category}</span>
+                      {expense.isParentExpense && userRole === 'parent' && (
+                        <span className="ml-1 text-xs text-muted-foreground">(Your expense)</span>
+                      )}
+                      {expense.isChildExpense && userRole === 'parent' && (
+                        <span className="ml-1 text-xs text-muted-foreground">(Child expense)</span>
+                      )}
                     </div>
                     <div className="font-medium">
                       {formatCurrency(expense.amount)}
@@ -336,7 +425,11 @@ export default function Dashboard() {
               variant="outline" 
               size="sm" 
               className="w-full"
-              onClick={() => navigate(userRole === 'child' ? "/expenses" : "/analytics")}
+              onClick={() => navigate(
+                userRole === 'child' ? 
+                "/expenses" : 
+                "/analytics"
+              )}
             >
               View All
             </Button>
@@ -358,7 +451,7 @@ export default function Dashboard() {
                   {children.map((child) => (
                     <div key={child.uid} className="flex justify-between items-center">
                       <div className="font-medium">{child.displayName}</div>
-                      <Button variant="ghost" size="sm" onClick={() => navigate(`/manage-children/${child.uid}`)}>
+                      <Button variant="ghost" size="sm" onClick={() => navigate(`/manage-children?child=${child.uid}`)}>
                         View
                       </Button>
                     </div>
@@ -429,7 +522,14 @@ export default function Dashboard() {
               {recentExpenses.map((expense) => (
                 <div key={expense.id} className="p-4 flex items-center justify-between">
                   <div>
-                    <p className="font-medium">{expense.description || `${expense.category} expense`}</p>
+                    <p className="font-medium flex items-center gap-2">
+                      {expense.description || `${expense.category} expense`}
+                      {userRole === 'parent' && (
+                        expense.isParentExpense ? 
+                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">Your expense</span> :
+                          <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">Child expense</span>
+                      )}
+                    </p>
                     <p className="text-sm text-muted-foreground">{formatDate(expense.date)}</p>
                   </div>
                   <div className="font-bold">{formatCurrency(expense.amount)}</div>
@@ -442,10 +542,15 @@ export default function Dashboard() {
               <p className="text-muted-foreground mb-4">
                 {userRole === 'child' 
                   ? "You haven't logged any expenses yet."
-                  : "No expenses have been logged by your children yet."}
+                  : "No expenses have been logged yet."}
               </p>
               {userRole === 'child' && (
                 <Button onClick={() => navigate("/log-expense")}>
+                  Log Your First Expense
+                </Button>
+              )}
+              {userRole === 'parent' && (
+                <Button onClick={() => navigate("/parent-log-expense")}>
                   Log Your First Expense
                 </Button>
               )}

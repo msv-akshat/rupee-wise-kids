@@ -21,6 +21,8 @@ import Requests from "./pages/Requests";
 import LogExpense from "./pages/LogExpense";
 import ExpenseView from "./pages/ExpenseView";
 import SendRequest from "./pages/SendRequest";
+import ParentLogExpense from "./pages/ParentLogExpense";
+import ParentExpenseView from "./pages/ParentExpenseView";
 import { useAuth } from "./contexts/AuthContext";
 
 // Create query client
@@ -91,6 +93,16 @@ const App = () => (
               <Route path="/requests" element={
                 <ProtectedRoute allowedRoles={['parent']}>
                   <Requests />
+                </ProtectedRoute>
+              } />
+              <Route path="/parent-log-expense" element={
+                <ProtectedRoute allowedRoles={['parent']}>
+                  <ParentLogExpense />
+                </ProtectedRoute>
+              } />
+              <Route path="/parent-expenses" element={
+                <ProtectedRoute allowedRoles={['parent']}>
+                  <ParentExpenseView />
                 </ProtectedRoute>
               } />
               

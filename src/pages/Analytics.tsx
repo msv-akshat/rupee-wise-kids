@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { subDays, subMonths, isAfter } from "date-fns";
 import { Timestamp } from "firebase/firestore";
-import { BarChart3 } from "lucide-react";
+import { BarChart3, UserPlus, UserRound } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -16,17 +16,32 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { formatCurrency } from "@/lib/utils";
 import { useExpensesData } from "@/hooks/useExpensesData";
 import { PieChartView } from "@/components/analytics/PieChartView";
 import { LineChartView } from "@/components/analytics/LineChartView";
 import { TimeFrameSelector } from "@/components/analytics/TimeFrameSelector";
 import { Expense } from "@/types/models";
+import { useAuth } from "@/contexts/AuthContext";
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { Badge } from "@/components/ui/badge";
 
 export default function Analytics() {
   const { expenses, isLoading } = useExpensesData();
+  const { userRole, currentUser } = useAuth();
   const [timeFrame, setTimeFrame] = useState("month");
   const [viewType, setViewType] = useState("category");
+  const [expenseType, setExpenseType] = useState<"all" | "parent" | "child" | string>(
+    userRole === "child" ? "all" : "all"
+  );
   const [dateRange, setDateRange] = useState<{
     from: Date;
     to: Date;
@@ -34,8 +49,33 @@ export default function Analytics() {
     from: subDays(new Date(), 30),
     to: new Date(),
   });
+  const [children, setChildren] = useState<any[]>([]);
+  const [selectedChild, setSelectedChild] = useState<string>("all");
+
+  // Fetch children if user is parent
+  useEffect(() => {
+    const fetchChildren = async () => {
+      if (userRole === 'parent' && currentUser) {
+        try {
+          const childrenSnapshot = await getDocs(
+            collection(db, 'users', currentUser.uid, 'children')
+          );
+          const childrenData = childrenSnapshot.docs.map(doc => ({
+            id: doc.id,
+            name: doc.data().displayName,
+          }));
+          setChildren(childrenData);
+          console.log("Fetched children for analytics:", childrenData);
+        } catch (error) {
+          console.error("Error fetching children:", error);
+        }
+      }
+    };
+    
+    fetchChildren();
+  }, [currentUser, userRole]);
   
-  // Filter expenses based on the selected timeframe
+  // Filter expenses based on the selected timeframe and expense type
   const getFilteredExpenses = () => {
     if (!expenses.length) return [];
     
@@ -53,7 +93,8 @@ export default function Analytics() {
     
     const endDate = timeFrame === "custom" ? dateRange.to : new Date();
     
-    return expenses.filter(expense => {
+    // Filter by date
+    let filtered = expenses.filter(expense => {
       const expenseDate = expense.date instanceof Timestamp 
         ? expense.date.toDate() 
         : new Date(expense.date);
@@ -62,6 +103,22 @@ export default function Analytics() {
              (isAfter(endDate, expenseDate) || 
              expenseDate.getTime() === endDate.getTime());
     });
+    
+    // Additional filters based on expense type and selected child
+    if (userRole === 'parent') {
+      if (expenseType === 'parent') {
+        filtered = filtered.filter(expense => expense.isParentExpense);
+      } else if (expenseType === 'child') {
+        filtered = filtered.filter(expense => !expense.isParentExpense);
+        
+        // Further filter by selected child
+        if (selectedChild !== 'all') {
+          filtered = filtered.filter(expense => expense.childId === selectedChild);
+        }
+      }
+    }
+    
+    return filtered;
   };
 
   // Group expenses by category
@@ -115,7 +172,8 @@ export default function Analytics() {
 
   const categoryData = getCategoryData();
   const timeSeriesData = getTimeSeriesData();
-  const totalExpenses = getFilteredExpenses().reduce((sum, expense) => sum + expense.amount, 0);
+  const filteredExpenses = getFilteredExpenses();
+  const totalExpenses = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
   const avgPerDay = totalExpenses / (
     timeFrame === "week" ? 7 : 
     timeFrame === "month" ? 30 : 
@@ -125,18 +183,78 @@ export default function Analytics() {
 
   return (
     <div className="space-y-6 animate-in">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center flex-wrap gap-4">
         <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
-        <TimeFrameSelector
-          timeFrame={timeFrame}
-          dateRange={dateRange}
-          onTimeFrameChange={setTimeFrame}
-          onDateRangeChange={setDateRange}
-        />
+        <div className="flex gap-4">
+          {userRole === 'parent' && (
+            <div className="flex items-center gap-2">
+              <Select
+                value={expenseType}
+                onValueChange={(value) => setExpenseType(value)}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Expense Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Expenses</SelectItem>
+                  <SelectItem value="parent">Parent Expenses</SelectItem>
+                  <SelectItem value="child">Children Expenses</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {userRole === 'parent' && expenseType === 'child' && children.length > 0 && (
+            <div className="flex items-center gap-2">
+              <Select
+                value={selectedChild}
+                onValueChange={(value) => setSelectedChild(value)}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Select Child" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Children</SelectItem>
+                  {children.map((child) => (
+                    <SelectItem key={child.id} value={child.id}>
+                      {child.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          <TimeFrameSelector
+            timeFrame={timeFrame}
+            dateRange={dateRange}
+            onTimeFrameChange={setTimeFrame}
+            onDateRangeChange={setDateRange}
+          />
+        </div>
       </div>
 
+      {userRole === 'parent' && (
+        <div className="flex items-center gap-2 pb-2">
+          <Badge variant={expenseType === 'all' ? 'default' : 'outline'}>
+            All Expenses
+          </Badge>
+          <Badge variant={expenseType === 'parent' ? 'default' : 'outline'}>
+            <UserRound className="h-3 w-3 mr-1" />
+            Parent Expenses
+          </Badge>
+          <Badge variant={expenseType === 'child' ? 'default' : 'outline'}>
+            <UserPlus className="h-3 w-3 mr-1" />
+            Children Expenses
+          </Badge>
+          {expenseType === 'child' && selectedChild !== 'all' && (
+            <Badge variant="secondary">
+              {children.find(c => c.id === selectedChild)?.name || 'Child'}
+            </Badge>
+          )}
+        </div>
+      )}
+
       <div className="grid gap-6">
-        {expenses.length === 0 ? (
+        {filteredExpenses.length === 0 ? (
           <Card>
             <CardHeader>
               <CardTitle>No Expense Data</CardTitle>

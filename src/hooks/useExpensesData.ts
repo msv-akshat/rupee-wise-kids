@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { collection, query, where, getDocs, Timestamp } from "firebase/firestore";
+import { collection, query, where, getDocs, Timestamp, doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Expense, ExpenseCategory } from "@/types/models";
 import { useAuth } from "@/contexts/AuthContext";
@@ -21,18 +21,37 @@ export const useExpensesData = () => {
         let expensesData: Expense[] = [];
         
         if (userRole === 'parent') {
-          // Fetch children first
+          // Fetch parent's own expenses first
+          const parentExpensesQuery = query(
+            collection(db, 'expenses'),
+            where('userId', '==', currentUser.uid)
+          );
+          
+          const parentExpensesSnapshot = await getDocs(parentExpensesQuery);
+          console.log("Parent's personal expenses count:", parentExpensesSnapshot.size);
+          
+          const parentExpenses = parentExpensesSnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              amount: data.amount as number,
+              category: data.category as ExpenseCategory,
+              description: data.description as string,
+              date: data.date as Timestamp,
+              userId: data.userId as string,
+              childId: data.childId as string || null,
+              createdAt: data.createdAt as Timestamp,
+              isParentExpense: true,
+            };
+          });
+          
+          expensesData = [...expensesData, ...parentExpenses];
+          
+          // Fetch children's expenses
           const childrenSnapshot = await getDocs(collection(db, 'users', currentUser.uid, 'children'));
           const childrenIds = childrenSnapshot.docs.map(doc => doc.id);
           
           console.log("Parent's children IDs:", childrenIds);
-          
-          if (childrenIds.length === 0) {
-            console.log("No children found, returning empty expenses array");
-            setExpenses([]);
-            setIsLoading(false);
-            return;
-          }
           
           // For each child, fetch their expenses
           for (const childId of childrenIds) {
@@ -57,6 +76,7 @@ export const useExpensesData = () => {
                 userId: data.userId as string,
                 childId: data.childId as string,
                 createdAt: data.createdAt as Timestamp,
+                isChildExpense: true,
               };
             });
             
