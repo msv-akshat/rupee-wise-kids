@@ -6,8 +6,9 @@ service cloud.firestore {
     // Allow users to read and write their own user document
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null;
       
-      // Allow parent users to read their child documents
+      // Allow parent users to read and write their child documents
       match /children/{childId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
@@ -20,6 +21,7 @@ service cloud.firestore {
                          (resource.data.userId == request.auth.uid || 
                           resource.data.childId == request.auth.uid ||
                           exists(/databases/$(database)/documents/users/$(request.auth.uid)/children/$(resource.data.childId)));
+      allow create: if request.auth != null;
     }
     
     // Budget collection
@@ -30,7 +32,9 @@ service cloud.firestore {
                    (resource.data.userId == request.auth.uid || 
                     resource.data.childId == request.auth.uid);
       allow write: if request.auth != null && 
-                    resource.data.userId == request.auth.uid;
+                    (resource.data.userId == request.auth.uid ||
+                     exists(/databases/$(database)/documents/users/$(resource.data.userId)/children/$(request.auth.uid)));
+      allow create: if request.auth != null;
     }
     
     // Requests collection

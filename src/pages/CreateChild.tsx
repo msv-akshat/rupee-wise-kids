@@ -57,10 +57,9 @@ export default function CreateChild() {
     setIsLoading(true);
     
     try {
-      const parentEmail = currentUser.email;
-      console.log("Creating child account with parent email:", parentEmail);
-      
+      console.log("Starting child account creation process");
       await createChildAccount(data.email, data.password, data.name);
+      console.log("Child account created successfully, navigating to manage children");
       toast.success(`Child account for ${data.name} created successfully!`);
       navigate("/manage-children");
     } catch (error: any) {

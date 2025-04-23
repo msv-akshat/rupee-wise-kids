@@ -118,7 +118,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // Create child account function - fixed to prevent auto-login as child
+  // Create child account function - completely rewritten
   const createChildAccount = async (email: string, password: string, name: string) => {
     if (!currentUser || userRole !== 'parent') {
       throw new Error("Only parent accounts can create child accounts");
@@ -126,20 +126,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     setIsLoading(true);
     
-    // Store current parent auth information
-    const parentEmail = currentUser.email;
-    const parentUid = currentUser.uid;
-    
     try {
-      // Save parent auth state
-      const parentAuth = { ...currentUser };
+      // Store parent information
+      const parentUid = currentUser.uid;
+      const parentEmail = currentUser.email;
+      const parentPassword = password; // We'll need this to log back in as parent
       
-      // Create child account temporarily
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const childUid = userCredential.user.uid;
+      // First sign out the parent (current user)
+      await signOut(auth);
       
-      // Update profile with name
-      await updateProfile(userCredential.user, {
+      // Create the child account
+      const childCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const childUid = childCredential.user.uid;
+      
+      // Update child profile with name
+      await updateProfile(childCredential.user, {
         displayName: name
       });
       
@@ -161,27 +162,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         createdAt: new Date().toISOString(),
       });
       
-      console.log("Child account created, signing out...");
-      
       // Sign out the child account
       await signOut(auth);
       
-      console.log("Signed out child account, signing back in as parent...");
-      
       // Sign back in as parent
       if (parentEmail) {
-        // We need to log the parent back in
-        await signInWithEmailAndPassword(auth, parentEmail, password);
-        
+        await signInWithEmailAndPassword(auth, parentEmail, parentPassword);
         toast.success(`Child account for ${name} created successfully!`);
-      } else {
-        toast.error("Failed to restore parent session");
       }
       
       return childUid;
     } catch (error: any) {
       const errorMessage = error.message || "Failed to create child account. Please try again.";
       toast.error(errorMessage);
+      
+      // If there was an error, make sure we re-login as parent
+      try {
+        if (currentUser && currentUser.email) {
+          await signInWithEmailAndPassword(auth, currentUser.email, password);
+        }
+      } catch (loginError) {
+        console.error("Failed to re-login as parent", loginError);
+      }
+      
       throw error;
     } finally {
       setIsLoading(false);
