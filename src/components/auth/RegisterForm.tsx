@@ -1,6 +1,5 @@
-
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -17,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { UserPlus, IndianRupee } from "lucide-react";
+import { toast } from "sonner";
 
 const registerSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters" }),
@@ -30,7 +30,11 @@ const registerSchema = z.object({
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
-export function RegisterForm() {
+export interface RegisterFormProps {
+  onRegisterSuccess?: (redirectTo?: string) => void;
+}
+
+export function RegisterForm({ onRegisterSuccess }: RegisterFormProps) {
   const { register } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
@@ -49,9 +53,15 @@ export function RegisterForm() {
     setIsLoading(true);
     try {
       await register(data.email, data.password, data.name);
-      navigate("/dashboard");
+      if (onRegisterSuccess) {
+        onRegisterSuccess("/dashboard");
+      } else {
+        navigate("/dashboard");
+      }
+      toast.success("Account created successfully!");
     } catch (error) {
       console.error(error);
+      toast.error("Failed to create account. Please try again.");
     } finally {
       setIsLoading(false);
     }
