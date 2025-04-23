@@ -14,15 +14,27 @@ import CreateChild from "./pages/CreateChild";
 import NotFound from "./pages/NotFound";
 import MainLayout from "./components/layout/MainLayout";
 import Index from "./pages/Index";
+import ManageChildren from "./pages/ManageChildren";
+import Analytics from "./pages/Analytics";
+import Profile from "./pages/Profile";
+import Requests from "./pages/Requests";
+import LogExpense from "./pages/LogExpense";
+import ExpenseView from "./pages/ExpenseView";
+import SendRequest from "./pages/SendRequest";
 import { useAuth } from "./contexts/AuthContext";
-import { Suspense, lazy } from "react";
 
 // Create query client
 const queryClient = new QueryClient();
 
-// Protected route component
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { currentUser, isLoading } = useAuth();
+// Protected route component that checks user role
+const ProtectedRoute = ({ 
+  children, 
+  allowedRoles 
+}: { 
+  children: React.ReactNode;
+  allowedRoles?: Array<'parent' | 'child'>;
+}) => {
+  const { currentUser, userRole, isLoading } = useAuth();
   
   if (isLoading) {
     return <div className="flex h-screen w-full items-center justify-center">
@@ -32,6 +44,10 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   
   if (!currentUser) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (allowedRoles && !allowedRoles.includes(userRole as 'parent' | 'child')) {
+    return <Navigate to="/dashboard" replace />;
   }
   
   return <>{children}</>;
@@ -50,16 +66,50 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             
-            {/* Protected Routes */}
+            {/* Protected Routes with Layout */}
             <Route path="/" element={
               <ProtectedRoute>
                 <MainLayout />
               </ProtectedRoute>
             }>
+              {/* Common Routes for Both Roles */}
               <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/create-child" element={<CreateChild />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/analytics" element={<Analytics />} />
               
-              {/* Add other routes here */}
+              {/* Parent-Only Routes */}
+              <Route path="/create-child" element={
+                <ProtectedRoute allowedRoles={['parent']}>
+                  <CreateChild />
+                </ProtectedRoute>
+              } />
+              <Route path="/manage-children" element={
+                <ProtectedRoute allowedRoles={['parent']}>
+                  <ManageChildren />
+                </ProtectedRoute>
+              } />
+              <Route path="/requests" element={
+                <ProtectedRoute allowedRoles={['parent']}>
+                  <Requests />
+                </ProtectedRoute>
+              } />
+              
+              {/* Child-Only Routes */}
+              <Route path="/log-expense" element={
+                <ProtectedRoute allowedRoles={['child']}>
+                  <LogExpense />
+                </ProtectedRoute>
+              } />
+              <Route path="/expenses" element={
+                <ProtectedRoute allowedRoles={['child']}>
+                  <ExpenseView />
+                </ProtectedRoute>
+              } />
+              <Route path="/send-request" element={
+                <ProtectedRoute allowedRoles={['child']}>
+                  <SendRequest />
+                </ProtectedRoute>
+              } />
             </Route>
             
             {/* Catch-all route */}
