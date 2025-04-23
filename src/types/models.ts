@@ -21,6 +21,8 @@ export interface Expense {
   date: Timestamp | Date;
   createdAt: Timestamp | Date;
   updatedAt?: Timestamp | Date;
+  isParentExpense?: boolean; // Added for parent expenses
+  isChildExpense?: boolean; // Added for child expenses
 }
 
 export interface Budget {

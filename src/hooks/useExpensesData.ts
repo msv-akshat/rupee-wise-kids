@@ -42,7 +42,7 @@ export const useExpensesData = () => {
               childId: data.childId as string || null,
               createdAt: data.createdAt as Timestamp,
               isParentExpense: true,
-            };
+            } as Expense;
           });
           
           expensesData = [...expensesData, ...parentExpenses];
@@ -77,7 +77,7 @@ export const useExpensesData = () => {
                 childId: data.childId as string,
                 createdAt: data.createdAt as Timestamp,
                 isChildExpense: true,
-              };
+              } as Expense;
             });
             
             expensesData = [...expensesData, ...childExpenses];
@@ -105,7 +105,7 @@ export const useExpensesData = () => {
               userId: data.userId as string,
               childId: data.childId as string,
               createdAt: data.createdAt as Timestamp,
-            };
+            } as Expense;
           });
         }
         

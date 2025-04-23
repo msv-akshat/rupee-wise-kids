@@ -57,11 +57,11 @@ export default function Dashboard() {
           const parentExpensesSnapshot = await getDocs(parentExpensesQuery);
           console.log("Parent's expenses count:", parentExpensesSnapshot.size);
           
-          let parentExpenses = parentExpensesSnapshot.docs.map(doc => ({
+          const parentExpenses: Expense[] = parentExpensesSnapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data(),
             isParentExpense: true
-          })) as Expense[];
+          } as Expense));
           
           // Sort manually
           parentExpenses.sort((a, b) => {
@@ -99,11 +99,11 @@ export default function Dashboard() {
             const childExpensesSnapshot = await getDocs(childExpensesQuery);
             console.log("First child's expenses count:", childExpensesSnapshot.size);
             
-            let childExpenses = childExpensesSnapshot.docs.map(doc => ({
+            const childExpenses: Expense[] = childExpensesSnapshot.docs.map(doc => ({
               id: doc.id,
               ...doc.data(),
               isChildExpense: true
-            })) as Expense[];
+            } as Expense));
             
             // Sort manually
             childExpenses.sort((a, b) => {

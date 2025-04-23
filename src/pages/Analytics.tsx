@@ -107,9 +107,9 @@ export default function Analytics() {
     // Additional filters based on expense type and selected child
     if (userRole === 'parent') {
       if (expenseType === 'parent') {
-        filtered = filtered.filter(expense => expense.isParentExpense);
+        filtered = filtered.filter(expense => expense.isParentExpense === true);
       } else if (expenseType === 'child') {
-        filtered = filtered.filter(expense => !expense.isParentExpense);
+        filtered = filtered.filter(expense => expense.isParentExpense !== true);
         
         // Further filter by selected child
         if (selectedChild !== 'all') {
