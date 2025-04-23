@@ -25,31 +25,26 @@ const ExpenseView = () => {
       try {
         setIsLoading(true);
         
-        let baseQuery = query(
-          collection(db, "expenses"),
-          where("userId", "==", currentUser.uid)
-        );
+        // Create base query
+        let baseQuery = collection(db, "expenses");
         
-        let expensesQuery = baseQuery;
+        // Apply filters based on timeframe
+        let queryConstraints = [where("userId", "==", currentUser.uid)];
+        
         const now = new Date();
         
         if (timeframe === "week") {
           const lastWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-          expensesQuery = query(
-            baseQuery,
-            where("date", ">=", Timestamp.fromDate(lastWeek))
-          );
+          queryConstraints.push(where("date", ">=", Timestamp.fromDate(lastWeek)));
         } else if (timeframe === "month") {
           const lastMonth = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-          expensesQuery = query(
-            baseQuery,
-            where("date", ">=", Timestamp.fromDate(lastMonth))
-          );
+          queryConstraints.push(where("date", ">=", Timestamp.fromDate(lastMonth)));
         }
-
-        expensesQuery = query(expensesQuery, orderBy("date", "desc"));
         
+        // Execute query without orderBy to avoid composite index issues
+        const expensesQuery = query(baseQuery, ...queryConstraints);
         const expensesSnapshot = await getDocs(expensesQuery);
+        
         const expensesData = expensesSnapshot.docs.map((doc) => {
           const data = doc.data();
           return {
@@ -64,7 +59,14 @@ const ExpenseView = () => {
           } as Expense;
         });
 
-        setExpenses(expensesData);
+        // Sort data client-side instead of using orderBy in the query
+        const sortedExpenses = expensesData.sort((a, b) => {
+          const dateA = a.date as Timestamp;
+          const dateB = b.date as Timestamp;
+          return dateB.toMillis() - dateA.toMillis();
+        });
+
+        setExpenses(sortedExpenses);
       } catch (error) {
         console.error("Error fetching expenses:", error);
         toast.error("Failed to load expenses");
