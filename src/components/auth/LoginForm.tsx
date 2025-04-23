@@ -1,6 +1,5 @@
 
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -16,19 +15,24 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { LogIn, IndianRupee } from "lucide-react";
+import { IndianRupee, LogIn } from "lucide-react";
+import { Link } from "react-router-dom";
+import { toast } from "sonner";
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
-  password: z.string().min(6, { message: "Password must be at least 6 characters" }),
+  password: z.string().min(1, { message: "Password is required" }),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
-export function LoginForm() {
+export interface LoginFormProps {
+  onLoginSuccess?: (redirectTo?: string) => void;
+}
+
+export function LoginForm({ onLoginSuccess }: LoginFormProps) {
   const { login } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
-  const navigate = useNavigate();
   
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -42,9 +46,12 @@ export function LoginForm() {
     setIsLoading(true);
     try {
       await login(data.email, data.password);
-      navigate("/dashboard");
-    } catch (error) {
+      if (onLoginSuccess) {
+        onLoginSuccess("/dashboard");
+      }
+    } catch (error: any) {
       console.error(error);
+      toast.error("Login failed. Please check your credentials.");
     } finally {
       setIsLoading(false);
     }
@@ -92,7 +99,7 @@ export function LoginForm() {
             />
             <Button 
               type="submit" 
-              className="w-full"
+              className="w-full" 
               disabled={isLoading}
             >
               {isLoading ? (
@@ -112,7 +119,7 @@ export function LoginForm() {
       </CardContent>
       <CardFooter className="flex flex-col space-y-4">
         <div className="text-sm text-center text-muted-foreground">
-          Don't have a parent account? <Button variant="link" className="p-0 h-auto" onClick={() => navigate("/register")}>Register here</Button>
+          Don't have a parent account? <Link to="/register" className="text-primary hover:underline">Register here</Link>
         </div>
       </CardFooter>
     </Card>

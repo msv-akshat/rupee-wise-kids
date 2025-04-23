@@ -14,10 +14,14 @@ export default function Login() {
     }
   }, [currentUser, isLoading, navigate]);
 
+  const handleLoginSuccess = (redirectTo?: string) => {
+    navigate(redirectTo || "/dashboard");
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-background to-muted">
       <div className="w-full max-w-md">
-        <LoginForm />
+        <LoginForm onLoginSuccess={handleLoginSuccess} />
       </div>
     </div>
   );
