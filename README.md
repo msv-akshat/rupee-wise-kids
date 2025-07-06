@@ -1,73 +1,72 @@
-# Welcome to your Lovable project
+# RupeeWise Kids 💰 – Financial Literacy Prototype App
 
-## Project info
+⚠️ **Note:** This project was created as a **learning experiment during my second year**, using low-code/no-code tools like **Lovable AI** to explore React layouts and early UI design.  
+It is not actively maintained and serves as an archived prototype.
 
-**URL**: https://lovable.dev/projects/d3232de7-f93a-4c48-a9bc-8e8beb21755a
+---
 
-## How can I edit this code?
+## 🧒 About the App
 
-There are several ways of editing your application.
+**RupeeWise Kids** is a prototype app aimed at teaching children the basics of money, saving, and budgeting in a simple, interactive way.
 
-**Use Lovable**
+The idea was to build a web-based experience where young users could:
+- Learn how to **save and spend wisely**
+- Understand basic **budgeting principles**
+- Interact with **visually appealing lessons and stories**
+- Engage with planned quizzes and games (future scope)
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/d3232de7-f93a-4c48-a9bc-8e8beb21755a) and start prompting.
+This project helped me understand how to translate educational content into a user-friendly digital product.
 
-Changes made via Lovable will be committed automatically to this repo.
+---
 
-**Use your preferred IDE**
+## 🛠️ Tech Stack
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+- ⚛️ React (Generated partially via Lovable AI)
+- 🎨 Basic CSS/Bootstrap for styling
+- 🗂️ Static routing and component structure
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+---
 
-Follow these steps:
+## 🗂️ Project Structure
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+rupee-wise-kids/
+├── public/
+├── src/
+│ ├── components/
+│ ├── pages/
+│ ├── App.js
+│ └── index.js
+├── package.json
+├── README.md
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
 
-# Step 3: Install the necessary dependencies.
-npm i
+---
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+## 🧠 What I Learned
 
-**Edit a file directly in GitHub**
+- Used Lovable AI to explore low-code UI generation
+- Understood page/component separation in React
+- Practiced early design thinking around user experience for kids
+- Learned basics of routing, navigation, and layout structuring
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+---
 
-**Use GitHub Codespaces**
+## 🚧 Project Status
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+This project is no longer in active development and was primarily built for learning purposes during my second year.  
+To see my full-stack projects with custom logic and backend workflows, check out:
 
-## What technologies are used for this project?
+👉 [UdhyanSetu_Final](https://github.com/msv-akshat/UdhyanSetu_Final)
 
-This project is built with:
+---
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## 🙏 Credits
 
-## How can I deploy this project?
+- UI prototypes and layout inspiration from **Lovable AI**
+- Self-initiated project for exploring educational apps and frontend workflows
 
-Simply open [Lovable](https://lovable.dev/projects/d3232de7-f93a-4c48-a9bc-8e8beb21755a) and click on Share -> Publish.
+---
 
-## Can I connect a custom domain to my Lovable project?
+## 📄 License
 
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+This project is open-source and available under the [MIT License](LICENSE).
