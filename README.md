@@ -9,61 +9,43 @@ It is not actively maintained and serves as an archived prototype.
 
 **RupeeWise Kids** is a prototype app aimed at teaching children the basics of money, saving, and budgeting in a simple, interactive way.
 
-The idea was to build a web-based experience where young users could:
-- Learn how to **save and spend wisely**
-- Understand basic **budgeting principles**
-- Interact with **visually appealing lessons and stories**
-- Engage with planned quizzes and games (future scope)
-
-This project helped me understand how to translate educational content into a user-friendly digital product.
+It includes:
+- 📚 Lessons on saving and spending
+- 🎯 Basic budgeting tips
+- 🌟 A visually friendly layout designed for young users
+- 🎮 (Planned) quizzes and interactive games
 
 ---
 
 ## 🛠️ Tech Stack
 
-- ⚛️ React (Generated partially via Lovable AI)
-- 🎨 Basic CSS/Bootstrap for styling
-- 🗂️ Static routing and component structure
+- ⚛️ React (partially generated with Lovable AI)
+- 🎨 CSS + Bootstrap for styling
+- 📁 Static pages and components for each lesson
 
 ---
 
-## 🗂️ Project Structure
+## 💡 What I Practiced
 
-rupee-wise-kids/
-├── public/
-├── src/
-│ ├── components/
-│ ├── pages/
-│ ├── App.js
-│ └── index.js
-├── package.json
-├── README.md
-
-
----
-
-## 🧠 What I Learned
-
-- Used Lovable AI to explore low-code UI generation
-- Understood page/component separation in React
-- Practiced early design thinking around user experience for kids
-- Learned basics of routing, navigation, and layout structuring
+- Working with component-based UI in React
+- Exploring no-code UI layout tools (Lovable AI)
+- Designing educational content for a younger audience
+- Navigating project structure and file management
 
 ---
 
 ## 🚧 Project Status
 
-This project is no longer in active development and was primarily built for learning purposes during my second year.  
-To see my full-stack projects with custom logic and backend workflows, check out:
-
+This was a **2nd-year learning project** and is no longer under active development.  
+See my current full-stack projects here:  
 👉 [UdhyanSetu_Final](https://github.com/msv-akshat/UdhyanSetu_Final)
 
 ---
 
 ## 🙏 Credits
 
-- UI prototypes and layout inspiration from **Lovable AI**
-- Self-initiated project for exploring educational apps and frontend workflows
+- Built using **Lovable AI** tools for layout and design inspiration.
+- Created as part of an exploration into educational and fintech apps.
 
 ---
 
